@@ -48,6 +48,7 @@ export function Dashboard() {
   const nowMs = useSecondTick(clockOffsetMs);
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [activeExamId, setActiveExamId] = useState<string | null>(null);
   const [reflection, setReflection] = useState(data.reflections[today]?.text || '');
 
   const todayTasks = useMemo(
@@ -61,11 +62,17 @@ export function Dashboard() {
   const checkedIn = Boolean(data.checkins[today]);
   const dse = nextDse(allEvents, data.settings.dseStartDate, today);
   const dseDays = dse ? daysUntil(dse.start, today) : null;
+  const selectedSubjectIds = data.settings.selectedSubjectIds ?? data.subjects.map((subject) => subject.id);
+  const selectedSubjectSet = new Set(selectedSubjectIds);
   const examPool = dse && dse.id === 'settings-dse-start' ? [...allEvents, dse] : allEvents;
-  const nextExam = upcomingExamEvents(examPool, nowMs)[0];
-  const nextExamTarget = nextExam ? eventStartMs(nextExam) : Number.NaN;
-  const nextExamSubject = nextExam?.subjectId
-    ? data.subjects.find((subject) => subject.id === nextExam.subjectId)
+  const selectedExams = upcomingExamEvents(examPool, nowMs, selectedSubjectSet);
+  const activeExam = selectedExams.find((event) => event.id === activeExamId) || selectedExams[0];
+  const activeExamIndex = activeExam
+    ? selectedExams.findIndex((event) => event.id === activeExam.id)
+    : -1;
+  const nextExamTarget = activeExam ? eventStartMs(activeExam) : Number.NaN;
+  const nextExamSubject = activeExam?.subjectId
+    ? data.subjects.find((subject) => subject.id === activeExam.subjectId)
     : undefined;
   const upcoming = upcomingEvents(allEvents, today, 4);
   const subjectCountdowns = data.subjects
@@ -113,6 +120,13 @@ export function Dashboard() {
     setView('calendar');
   };
 
+  const moveExam = (delta: number) => {
+    if (selectedExams.length === 0) return;
+    const current = activeExamIndex >= 0 ? activeExamIndex : 0;
+    const next = (current + delta + selectedExams.length) % selectedExams.length;
+    setActiveExamId(selectedExams[next].id);
+  };
+
   return (
     <div className="stack" style={{ gap: 16 }}>
       <div className="page-head">
@@ -137,18 +151,18 @@ export function Dashboard() {
           <section className="card hero-card">
             <div className="hero-main">
               <div>
-                <div className="hero-kicker">Precision countdown / next paper</div>
-                {nextExam && Number.isFinite(nextExamTarget) ? (
+                <div className="hero-kicker">Selected subjects / precision countdown</div>
+                {activeExam && Number.isFinite(nextExamTarget) ? (
                   <>
                     <PrecisionCountdown targetMs={nextExamTarget} nowMs={nowMs} />
                     <p className="countdown-caption">
-                      直到 <strong>{nextExam.title}</strong> · {formatFullDate(nextExam.start)}
-                      {!nextExam.allDay ? ` · ${formatTime(nextExam.start)}` : ''}
+                      直到 <strong>{activeExam.title}</strong> · {formatFullDate(activeExam.start)}
+                      {!activeExam.allDay ? ` · ${formatTime(activeExam.start)}` : ''}
                       <br />
                       {nextExamSubject ? `${nextExamSubject.name} · ` : ''}
-                      {EVENT_TYPE_LABEL[nextExam.type]}
-                      {nextExam.paper ? ` · ${nextExam.paper}` : ''}
-                      {nextExam.source === 'system'
+                      {EVENT_TYPE_LABEL[activeExam.type]}
+                      {activeExam.paper ? ` · ${activeExam.paper}` : ''}
+                      {activeExam.source === 'system'
                         ? ` · ${systemTimetable.source === 'estimated' ? '預估 HKEAA 時間' : 'HKEAA 官方時間'}`
                         : ''}
                       <br />
@@ -156,6 +170,39 @@ export function Dashboard() {
                         ? `時鐘已校準 ${formatOffset(clockOffsetMs)}；倒數每秒更新。`
                         : '倒數每秒以系統時鐘更新；可在設定校準時鐘。'}
                     </p>
+                    {selectedExams.length > 1 ? (
+                      <div className="hero-exam-switcher">
+                        <div className="hero-exam-rail" role="tablist" aria-label="已選科目的最近考試">
+                          {selectedExams.slice(0, 20).map((exam) => {
+                            const subject = exam.subjectId
+                              ? data.subjects.find((item) => item.id === exam.subjectId)
+                              : undefined;
+                            return (
+                              <button
+                                type="button"
+                                key={exam.id}
+                                role="tab"
+                                aria-selected={exam.id === activeExam.id}
+                                className={`hero-exam-pill${exam.id === activeExam.id ? ' active' : ''}`}
+                                onClick={() => setActiveExamId(exam.id)}
+                              >
+                                <span className="hero-exam-subject">{subject?.name || EVENT_TYPE_LABEL[exam.type]}</span>
+                                <span className="hero-exam-date">{formatDate(exam.start)}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="hero-exam-nav">
+                          <button type="button" className="icon-btn" onClick={() => moveExam(-1)} aria-label="上一個考試">
+                            <Icon name="chevron-left" size={14} />
+                          </button>
+                          <span className="tiny muted">{activeExamIndex + 1} / {selectedExams.length}</span>
+                          <button type="button" className="icon-btn" onClick={() => moveExam(1)} aria-label="下一個考試">
+                            <Icon name="chevron-right" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <>
@@ -164,7 +211,9 @@ export function Dashboard() {
                       <span className="countdown-unit">exam</span>
                     </div>
                     <p className="countdown-caption">
-                      還沒有考試。請在日曆新增 DSE、Mock、校內考試或 SBA，最近一個會自動成為主倒數。
+                      {selectedSubjectIds.length === 0
+                        ? '尚未選擇 DSE 科目。到設定勾選你報考的科目，主頁只會顯示這批科目的最近考試。'
+                        : '所選科目暫時沒有考試。請在日曆新增考試，或到設定調整選科。'}
                     </p>
                   </>
                 )}
@@ -183,7 +232,11 @@ export function Dashboard() {
                       : '尚未設定 DSE 首科日期'}
                   </div>
                 </div>
-                {!dse ? (
+                {selectedSubjectIds.length === 0 ? (
+                  <button type="button" className="btn btn-sm" onClick={() => setView('settings')}>
+                    選擇 DSE 科目
+                  </button>
+                ) : !dse ? (
                   <button type="button" className="btn btn-sm" onClick={() => setView('settings')}>
                     設定 DSE 日期
                   </button>

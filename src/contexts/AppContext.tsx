@@ -116,7 +116,7 @@ interface AppContextValue {
   saveReflection: (date: string, text: string) => void;
   addImages: (date: string, files: File[], subjectId: string | undefined, caption: string) => Promise<{ added: number; error?: string }>;
   deleteImage: (imageId: string) => void;
-  addSubject: (name: string, category: SubjectCategory) => void;
+  addSubject: (name: string, category: SubjectCategory) => string | undefined;
   deleteSubject: (subjectId: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
@@ -548,9 +548,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addSubject = useCallback(
     (name: string, category: SubjectCategory) => {
       const trimmed = name.trim().slice(0, 32);
-      if (!trimmed) return;
+      if (!trimmed) return undefined;
+      const existing = dataRef.current.subjects.find(
+        (subject) => subject.name.trim().toLowerCase() === trimmed.toLowerCase(),
+      );
+      if (existing) return existing.id;
       const subject: Subject = { id: uid('sub'), name: trimmed, category, custom: true };
-      persist({ ...dataRef.current, subjects: [...dataRef.current.subjects, subject] });
+      if (!persist({ ...dataRef.current, subjects: [...dataRef.current.subjects, subject] })) {
+        return undefined;
+      }
+      return subject.id;
     },
     [persist],
   );
@@ -560,15 +567,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const current = dataRef.current;
       const subject = current.subjects.find((item) => item.id === subjectId);
       if (!subject?.custom) return;
-      persist({
+      const nextSettings = {
+        ...current.settings,
+        selectedSubjectIds: current.settings.selectedSubjectIds.filter((id) => id !== subjectId),
+      };
+      if (!persist({
         ...current,
+        settings: nextSettings,
         subjects: current.subjects.filter((item) => item.id !== subjectId),
         tasks: current.tasks.map((task) => (task.subjectId === subjectId ? { ...task, subjectId: '' } : task)),
         events: current.events.map((event) => (event.subjectId === subjectId ? { ...event, subjectId: undefined } : event)),
         images: current.images.map((image) => (image.subjectId === subjectId ? { ...image, subjectId: undefined } : image)),
-      });
+      })) return;
+      if (user && cloudReady) {
+        void saveSettings(user.uid, nextSettings).catch((error) => {
+          showToast(`科目已刪除，雲端設定同步失敗：${messageFor(error)}`, 'error');
+        });
+      }
     },
-    [persist],
+    [cloudReady, persist, showToast, user],
   );
 
   const updateSettings = useCallback(

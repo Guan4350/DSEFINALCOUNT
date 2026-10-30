@@ -2940,6 +2940,74 @@
   line-height: 1;
 }
 
+/* Horizontally scrollable selector for nearby selected exams. */
+.hero-exam-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 16px;
+}
+
+.hero-exam-rail {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+
+.hero-exam-pill {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 92px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  scroll-snap-align: start;
+  transition:
+    background-color 0.25s ease-out,
+    border-color 0.25s ease-out,
+    transform 0.25s ease-out;
+}
+
+.hero-exam-pill:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.hero-exam-pill.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.hero-exam-subject {
+  overflow: hidden;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-exam-date {
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+}
+
+.hero-exam-nav {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+}
+
 .countdown-caption {
   max-width: 440px;
   color: var(--muted);
@@ -3404,6 +3472,15 @@
   .precision-separator {
     padding-bottom: 14px;
     font-size: 20px;
+  }
+
+  .hero-exam-switcher {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hero-exam-rail {
+    width: 100%;
   }
 
   .card-head,

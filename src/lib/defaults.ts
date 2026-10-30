@@ -27,6 +27,7 @@ export function createDefaultData(): AppData {
       semesterMode: 'auto',
       timezone: 'Asia/Hong_Kong',
       clockOffsetMs: 0,
+      selectedSubjectIds: DEFAULT_SUBJECTS.map((subject) => subject.id),
     },
     subjects: DEFAULT_SUBJECTS.map((subject) => ({ ...subject })),
     events: [],

@@ -106,7 +106,8 @@ service cloud.firestore {
     function settingsShape() {
       return request.resource.data.keys().hasOnly([
         'dseYear', 'dseStartDate', 'dseEndDate', 'studyStartDate',
-        'hiddenSystemExamIds', 'semesterMode', 'timezone', 'clockOffsetMs', 'updatedAt'
+        'hiddenSystemExamIds', 'semesterMode', 'timezone', 'clockOffsetMs',
+        'selectedSubjectIds', 'updatedAt'
       ])
         && request.resource.data.dseYear is int && request.resource.data.dseYear >= 2020 && request.resource.data.dseYear <= 2100
         && request.resource.data.dseStartDate is string && request.resource.data.dseStartDate.size() <= 10
@@ -118,6 +119,8 @@ service cloud.firestore {
         && request.resource.data.clockOffsetMs is int
         && request.resource.data.clockOffsetMs >= -300000
         && request.resource.data.clockOffsetMs <= 300000
+        && request.resource.data.selectedSubjectIds is list
+        && request.resource.data.selectedSubjectIds.size() <= 500
         && request.resource.data.updatedAt == request.time;
     }
 

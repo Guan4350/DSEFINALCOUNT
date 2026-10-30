@@ -28,7 +28,10 @@ export function normalizeData(input: unknown): AppData {
 
   const subjectIds = new Set(subjects.map((subject) => subject.id));
   for (const subject of DEFAULT_SUBJECTS) {
-    if (!subjectIds.has(subject.id)) subjects.push({ ...subject });
+    if (!subjectIds.has(subject.id)) {
+      subjects.push({ ...subject });
+      subjectIds.add(subject.id);
+    }
   }
 
   return {
@@ -52,6 +55,17 @@ export function normalizeData(input: unknown): AppData {
       ...(typeof settings.clockOffsetMs === 'number' && Number.isFinite(settings.clockOffsetMs)
         ? { clockOffsetMs: Math.max(-300_000, Math.min(300_000, Math.round(settings.clockOffsetMs))) }
         : {}),
+      ...(Array.isArray(settings.selectedSubjectIds)
+        ? {
+            selectedSubjectIds: Array.from(
+              new Set(
+                settings.selectedSubjectIds.filter(
+                  (item): item is string => typeof item === 'string' && subjectIds.has(item),
+                ),
+              ),
+            ),
+          }
+        : { selectedSubjectIds: subjects.map((subject) => subject.id) }),
     },
     subjects,
     events: asArray<CalendarEvent>(input.events).filter((event) => isRecord(event) && typeof event.id === 'string' && typeof event.start === 'string'),

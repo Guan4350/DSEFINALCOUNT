@@ -87,6 +87,8 @@ export interface Settings {
   timezone: 'Asia/Hong_Kong';
   /** Device clock correction in ms, validated to ±5 minutes. */
   clockOffsetMs: number;
+  /** Subject IDs included in the dashboard countdown. Empty means none. */
+  selectedSubjectIds: string[];
 }
 
 export interface Profile {

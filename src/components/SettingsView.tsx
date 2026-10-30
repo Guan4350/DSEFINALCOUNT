@@ -18,6 +18,14 @@ const SEMESTER_OPTIONS: { value: SemesterMode; label: string }[] = [
 
 const YEARS = [2025, 2026, 2027, 2028, 2029, 2030];
 
+/** Names must match `SystemExamEvent.subject` so the timetable maps exactly. */
+const ELECTIVE_PRESETS = [
+  '物理', '化學', '生物', '經濟', '地理', '歷史', '中國歷史',
+  '企業、會計與財務概論', '資訊及通訊科技', '視覺藝術', '音樂', '體育',
+  '倫理與宗教', '中國文學', '英語文學', '科技與生活',
+  '健康管理與社會關懷', '旅遊與款待', '設計與應用科技',
+];
+
 export function SettingsView() {
   const {
     data,
@@ -49,9 +57,12 @@ export function SettingsView() {
   const [displayName, setDisplayName] = useState(data.profile.displayName);
   const [subjectName, setSubjectName] = useState('');
   const [subjectCategory, setSubjectCategory] = useState<SubjectCategory>('ELECTIVE');
+  const [electiveToAdd, setElectiveToAdd] = useState(ELECTIVE_PRESETS[0]);
   const clockOffsetMs = data.settings.clockOffsetMs ?? 0;
   const nowMs = useSecondTick(clockOffsetMs);
   const [referenceTime, setReferenceTime] = useState(() => formatHKClock(Date.now() + clockOffsetMs));
+  const selectedSubjectIds = data.settings.selectedSubjectIds ?? data.subjects.map((subject) => subject.id);
+  const selectedSubjectSet = new Set(selectedSubjectIds);
   const [busy, setBusy] = useState(false);
   const [adminYear, setAdminYear] = useState(data.settings.dseYear);
   const [adminJson, setAdminJson] = useState('');
@@ -84,6 +95,26 @@ export function SettingsView() {
       return;
     }
     applyClockOffset(next);
+  };
+
+  const toggleSelectedSubject = (subjectId: string) => {
+    const next = selectedSubjectSet.has(subjectId)
+      ? selectedSubjectIds.filter((id) => id !== subjectId)
+      : [...selectedSubjectIds, subjectId];
+    updateSettings({ selectedSubjectIds: next });
+  };
+
+  const addElectivePreset = () => {
+    const existing = data.subjects.find((subject) => subject.name === electiveToAdd);
+    const subjectId = existing?.id ?? addSubject(electiveToAdd, 'ELECTIVE');
+    if (!subjectId) {
+      showToast('無法加入科目，請檢查本機儲存空間。', 'error');
+      return;
+    }
+    if (!selectedSubjectSet.has(subjectId)) {
+      updateSettings({ selectedSubjectIds: [...selectedSubjectIds, subjectId] });
+    }
+    showToast(existing ? `已勾選 ${electiveToAdd}。` : `已加入並勾選 ${electiveToAdd}。`, 'success');
   };
 
   const runImport = async () => {
@@ -399,6 +430,85 @@ export function SettingsView() {
                 <span className="mono">{formatOffset(clockOffsetMs)}</span>
               </div>
             </div>
+          </section>
+
+          <section className="card settings-section">
+            <div className="card-head">
+              <div>
+                <div className="eyebrow">Exam focus</div>
+                <div className="card-title" style={{ marginTop: 5 }}>
+                  <Icon name="trophy" size={15} />
+                  DSE 選科
+                </div>
+              </div>
+              <span className="chip">{selectedSubjectIds.length} / {data.subjects.length}</span>
+            </div>
+            <div className="setting-row col">
+              <div className="setting-copy">
+                主頁頂部倒數只會顯示已勾選科目的最近考試。未登入時保存在 localStorage；登入後會同步到你的 Firestore 設定。
+              </div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => updateSettings({ selectedSubjectIds: data.subjects.map((subject) => subject.id) })}
+                >
+                  全選
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => updateSettings({ selectedSubjectIds: [] })}
+                >
+                  全清
+                </button>
+              </div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <select
+                  className="select"
+                  value={electiveToAdd}
+                  onChange={(event) => setElectiveToAdd(event.target.value)}
+                  aria-label="快速加入選修科"
+                  style={{ maxWidth: 220 }}
+                >
+                  {ELECTIVE_PRESETS.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <button type="button" className="btn btn-sm" onClick={addElectivePreset}>
+                  <Icon name="plus" size={13} />
+                  加入選修科
+                </button>
+              </div>
+            </div>
+            {data.subjects.map((subject) => (
+              <label className="setting-row" key={subject.id} style={{ cursor: 'pointer' }}>
+                <div>
+                  <div className="setting-label">{subject.name}</div>
+                  <div className="setting-copy">
+                    {SUBJECT_CATEGORY_LABEL[subject.category]}{subject.custom ? ' · 自訂' : ''}
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={selectedSubjectSet.has(subject.id)}
+                  onChange={() => toggleSelectedSubject(subject.id)}
+                  aria-label={`${subject.name} 是否納入主頁倒數`}
+                />
+              </label>
+            ))}
+            {selectedSubjectIds.length === 0 ? (
+              <div className="notice exam" style={{ margin: '0 18px 16px' }}>
+                <Icon name="info" size={15} />
+                <span>未選擇任何科目，主頁倒數會顯示提示。系統選修科會按科目名稱對應；如要逐科倒數，可在下面「科目分類」新增同名科目（例：物理）。</span>
+              </div>
+            ) : (
+              <div className="setting-row col">
+                <div className="setting-copy">
+                  系統選修科會按科目名稱對應；如要逐科倒數，可在下面「科目分類」新增同名科目（例：物理）。
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="card settings-section">
