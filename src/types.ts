@@ -85,6 +85,8 @@ export interface Settings {
   hiddenSystemExamIds: string[];
   semesterMode: SemesterMode;
   timezone: 'Asia/Hong_Kong';
+  /** Device clock correction in ms, validated to ±5 minutes. */
+  clockOffsetMs: number;
 }
 
 export interface Profile {

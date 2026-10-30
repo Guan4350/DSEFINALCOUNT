@@ -6,12 +6,16 @@ import {
   daysUntil,
   formatDate,
   formatFullDate,
+  formatTime,
   todayISO,
 } from '../lib/date';
 import { nextDse, upcomingEvents } from '../lib/analytics';
+import { eventStartMs, formatOffset, useSecondTick } from '../lib/clock';
+import { upcomingExamEvents } from '../lib/exams';
 import { SubjectBadge } from './SubjectBadge';
 import { Heatmap } from './Heatmap';
 import { TaskEditor } from './TaskEditor';
+import { PrecisionCountdown } from './PrecisionCountdown';
 import { Icon } from './Icons';
 
 function greeting(): string {
@@ -40,6 +44,8 @@ export function Dashboard() {
     saveReflection,
   } = useApp();
   const today = todayISO();
+  const clockOffsetMs = data.settings.clockOffsetMs ?? 0;
+  const nowMs = useSecondTick(clockOffsetMs);
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [reflection, setReflection] = useState(data.reflections[today]?.text || '');
@@ -55,6 +61,12 @@ export function Dashboard() {
   const checkedIn = Boolean(data.checkins[today]);
   const dse = nextDse(allEvents, data.settings.dseStartDate, today);
   const dseDays = dse ? daysUntil(dse.start, today) : null;
+  const examPool = dse && dse.id === 'settings-dse-start' ? [...allEvents, dse] : allEvents;
+  const nextExam = upcomingExamEvents(examPool, nowMs)[0];
+  const nextExamTarget = nextExam ? eventStartMs(nextExam) : Number.NaN;
+  const nextExamSubject = nextExam?.subjectId
+    ? data.subjects.find((subject) => subject.id === nextExam.subjectId)
+    : undefined;
   const upcoming = upcomingEvents(allEvents, today, 4);
   const subjectCountdowns = data.subjects
     .map((subject) => {
@@ -125,45 +137,51 @@ export function Dashboard() {
           <section className="card hero-card">
             <div className="hero-main">
               <div>
-                <div className="hero-kicker">DSE countdown / first paper</div>
-                {dse ? (
+                <div className="hero-kicker">Precision countdown / next paper</div>
+                {nextExam && Number.isFinite(nextExamTarget) ? (
                   <>
-                    <div className="countdown">
-                      <span className={`countdown-number${dseDays !== null && dseDays <= 30 ? ' accent' : ''}`}>
-                        {dseDays !== null && dseDays >= 0 ? dseDays : '—'}
-                      </span>
-                      <span className="countdown-unit">days</span>
-                    </div>
+                    <PrecisionCountdown targetMs={nextExamTarget} nowMs={nowMs} />
                     <p className="countdown-caption">
-                      直到 <strong>{dse.title}</strong> · {formatFullDate(dse.start)}
+                      直到 <strong>{nextExam.title}</strong> · {formatFullDate(nextExam.start)}
+                      {!nextExam.allDay ? ` · ${formatTime(nextExam.start)}` : ''}
                       <br />
-                      {dse.source === 'system'
-                        ? systemTimetable.source === 'estimated'
-                          ? '預估日期，一切以 HKEAA 正式公告為準。'
-                          : `${systemTimetable.label}；用戶只可隱藏，不可修改。`
-                        : '自訂 DSE 日期；可在日曆或設定修改。'}
+                      {nextExamSubject ? `${nextExamSubject.name} · ` : ''}
+                      {EVENT_TYPE_LABEL[nextExam.type]}
+                      {nextExam.paper ? ` · ${nextExam.paper}` : ''}
+                      {nextExam.source === 'system'
+                        ? ` · ${systemTimetable.source === 'estimated' ? '預估 HKEAA 時間' : 'HKEAA 官方時間'}`
+                        : ''}
                       <br />
-                      唔需要一次過處理整個考試；今日只處理下一個最清晰的步驟。
+                      {clockOffsetMs !== 0
+                        ? `時鐘已校準 ${formatOffset(clockOffsetMs)}；倒數每秒更新。`
+                        : '倒數每秒以系統時鐘更新；可在設定校準時鐘。'}
                     </p>
                   </>
                 ) : (
                   <>
                     <div className="countdown">
                       <span className="countdown-number" style={{ opacity: 0.28 }}>—</span>
-                      <span className="countdown-unit">date</span>
+                      <span className="countdown-unit">exam</span>
                     </div>
                     <p className="countdown-caption">
-                      尚未設定 DSE 開考日期。加入日期後，總倒數、各科倒數和 .ics 都會自動建立。
+                      還沒有考試。請在日曆新增 DSE、Mock、校內考試或 SBA，最近一個會自動成為主倒數。
                     </p>
                   </>
                 )}
               </div>
               <div className="hero-footer">
-                <div className="semester-mark">
-                  <Icon name="book" size={14} />
-                  <span>
-                    {semester.label} · <strong>{semester.progress}%</strong>
-                  </span>
+                <div className="stack-sm">
+                  <div className="semester-mark">
+                    <Icon name="book" size={14} />
+                    <span>
+                      {semester.label} · <strong>{semester.progress}%</strong>
+                    </span>
+                  </div>
+                  <div className="tiny muted">
+                    {dse
+                      ? `DSE 首科 · ${formatDate(dse.start)}${dseDays !== null ? ` · ${Math.max(0, dseDays)} 日` : ''}`
+                      : '尚未設定 DSE 首科日期'}
+                  </div>
                 </div>
                 {!dse ? (
                   <button type="button" className="btn btn-sm" onClick={() => setView('settings')}>

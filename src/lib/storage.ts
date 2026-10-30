@@ -49,6 +49,9 @@ export function normalizeData(input: unknown): AppData {
       ...(typeof settings.dseEndDate === 'string' ? { dseEndDate: settings.dseEndDate } : {}),
       ...(typeof settings.studyStartDate === 'string' ? { studyStartDate: settings.studyStartDate } : {}),
       ...(typeof settings.semesterMode === 'string' ? { semesterMode: settings.semesterMode as AppData['settings']['semesterMode'] } : {}),
+      ...(typeof settings.clockOffsetMs === 'number' && Number.isFinite(settings.clockOffsetMs)
+        ? { clockOffsetMs: Math.max(-300_000, Math.min(300_000, Math.round(settings.clockOffsetMs))) }
+        : {}),
     },
     subjects,
     events: asArray<CalendarEvent>(input.events).filter((event) => isRecord(event) && typeof event.id === 'string' && typeof event.start === 'string'),

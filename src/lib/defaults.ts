@@ -26,6 +26,7 @@ export function createDefaultData(): AppData {
       hiddenSystemExamIds: [],
       semesterMode: 'auto',
       timezone: 'Asia/Hong_Kong',
+      clockOffsetMs: 0,
     },
     subjects: DEFAULT_SUBJECTS.map((subject) => ({ ...subject })),
     events: [],

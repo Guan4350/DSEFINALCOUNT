@@ -3,6 +3,7 @@ import type { SemesterMode, SubjectCategory } from '../types';
 import { SUBJECT_CATEGORY_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { DSE_2025_EVENTS, type SystemExamEvent } from '../data/dse2025';
+import { clampOffset, formatHKClock, formatOffset, offsetFromReference, useSecondTick } from '../lib/clock';
 import { UsagePanel } from './UsagePanel';
 import { Icon } from './Icons';
 
@@ -48,6 +49,9 @@ export function SettingsView() {
   const [displayName, setDisplayName] = useState(data.profile.displayName);
   const [subjectName, setSubjectName] = useState('');
   const [subjectCategory, setSubjectCategory] = useState<SubjectCategory>('ELECTIVE');
+  const clockOffsetMs = data.settings.clockOffsetMs ?? 0;
+  const nowMs = useSecondTick(clockOffsetMs);
+  const [referenceTime, setReferenceTime] = useState(() => formatHKClock(Date.now() + clockOffsetMs));
   const [busy, setBusy] = useState(false);
   const [adminYear, setAdminYear] = useState(data.settings.dseYear);
   const [adminJson, setAdminJson] = useState('');
@@ -64,6 +68,22 @@ export function SettingsView() {
     if (!subjectName.trim()) return;
     addSubject(subjectName, subjectCategory);
     setSubjectName('');
+  };
+
+  const applyClockOffset = (next: number) => {
+    const clamped = clampOffset(next);
+    updateSettings({ clockOffsetMs: clamped });
+    setReferenceTime(formatHKClock(Date.now() + clamped));
+    showToast(`時鐘校正已設為 ${formatOffset(clamped)}。`, 'success');
+  };
+
+  const calibrateClock = () => {
+    const next = offsetFromReference(referenceTime);
+    if (next === null) {
+      showToast('請輸入有效的參考時間，格式為 HH:MM 或 HH:MM:SS。', 'error');
+      return;
+    }
+    applyClockOffset(next);
   };
 
   const runImport = async () => {
@@ -308,6 +328,75 @@ export function SettingsView() {
                 {data.settings.hiddenSystemExamIds.length ? (
                   <button type="button" className="btn btn-sm btn-ghost" onClick={() => updateSettings({ hiddenSystemExamIds: [] })}>全部恢復</button>
                 ) : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="card settings-section">
+            <div className="card-head">
+              <div>
+                <div className="eyebrow">Precision clock</div>
+                <div className="card-title" style={{ marginTop: 5 }}>
+                  <Icon name="clock" size={15} />
+                  高精度倒數時鐘
+                </div>
+              </div>
+              <span className={`chip${clockOffsetMs !== 0 ? ' chip-gold' : ''}`}>
+                {clockOffsetMs !== 0 ? `校正 ${formatOffset(clockOffsetMs)}` : '系統時間'}
+              </span>
+            </div>
+            <div className="setting-row">
+              <div>
+                <div className="setting-label">目前香港時間</div>
+                <div className="setting-copy">以系統時間為基準，每秒更新；DSE 考試時刻以 HKEAA 公布為準。</div>
+              </div>
+              <span className="mono" style={{ fontSize: 20, fontVariantNumeric: 'tabular-nums' }}>
+                {formatHKClock(nowMs)}
+              </span>
+            </div>
+            <div className="setting-row col">
+              <div style={{ width: '100%' }}>
+                <div className="setting-label">對照參考時間校準</div>
+                <div className="setting-copy">
+                  打開{' '}
+                  <a href="https://time.is/Hong_Kong" target="_blank" rel="noreferrer">time.is 香港時間</a>
+                  {' '}或{' '}
+                  <a href="https://www.hkeaa.edu.hk/en/hkdse/event_timetable/" target="_blank" rel="noreferrer">HKEAA 考試時間表</a>
+                  ，輸入目前時:分:秒，再按「校準」。
+                </div>
+              </div>
+              <div className="row" style={{ width: '100%', flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  type="time"
+                  step="1"
+                  value={referenceTime}
+                  onChange={(event) => setReferenceTime(event.target.value)}
+                  aria-label="參考時間"
+                  style={{ maxWidth: 150 }}
+                />
+                <button type="button" className="btn btn-sm btn-primary" onClick={calibrateClock}>校準</button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setReferenceTime(formatHKClock(Date.now() + clockOffsetMs))}
+                >
+                  現在
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => applyClockOffset(clockOffsetMs - 10_000)}>−10 秒</button>
+                <button type="button" className="btn btn-sm" onClick={() => applyClockOffset(clockOffsetMs - 1_000)}>−1 秒</button>
+                <button type="button" className="btn btn-sm" onClick={() => applyClockOffset(clockOffsetMs + 1_000)}>+1 秒</button>
+                <button type="button" className="btn btn-sm" onClick={() => applyClockOffset(clockOffsetMs + 10_000)}>+10 秒</button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => applyClockOffset(0)}>歸零</button>
+              </div>
+            </div>
+            <div className="setting-row col">
+              <div className="setting-copy">
+                校正範圍限制為 ±5 分鐘，避免誤輸入造成倒數錯誤。校正值會跟設定同步到你的 Firestore 帳戶（Mode B）或 localStorage（Mode A）。
+              </div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <span className="tiny muted">目前校正</span>
+                <span className="mono">{formatOffset(clockOffsetMs)}</span>
               </div>
             </div>
           </section>
