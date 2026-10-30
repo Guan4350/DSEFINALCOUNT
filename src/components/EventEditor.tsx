@@ -2,37 +2,65 @@ import { useMemo, useState } from 'react';
 import type { CalendarEvent, EventType } from '../types';
 import { EVENT_TYPE_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { addDays, todayISO } from '../lib/date';
+import { addDays, isISODate, todayISO } from '../lib/date';
 import { stableUid, uid } from '../lib/id';
 import { Modal } from './Modal';
 
 interface EventEditorProps {
   event?: CalendarEvent;
   defaultDate?: string;
+  defaultType?: EventType;
   onClose: () => void;
 }
 
 const TYPES: EventType[] = ['dse', 'mock', 'school', 'sba', 'study', 'custom'];
+
+type RepeatFreq = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+const REPEAT_OPTIONS: { value: RepeatFreq; label: string }[] = [
+  { value: 'DAILY', label: '每日' },
+  { value: 'WEEKLY', label: '每週' },
+  { value: 'MONTHLY', label: '每月' },
+];
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function timePart(value: string | undefined): string {
   if (!value || value.length < 16) return '09:00';
   return value.slice(11, 16);
 }
 
-export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventEditorProps) {
-  const { data, addEvent, updateEvent, deleteEvent } = useApp();
+function repeatFrequency(rrule: string): RepeatFreq | null {
+  const match = /FREQ=(DAILY|WEEKLY|MONTHLY)/i.exec(rrule);
+  return match ? (match[1].toUpperCase() as RepeatFreq) : null;
+}
+
+function isSimpleRule(rrule: string): boolean {
+  return /^FREQ=(DAILY|WEEKLY|MONTHLY)$/i.test(rrule);
+}
+
+export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'dse', onClose }: EventEditorProps) {
+  const { data, allEvents, addEvent, updateEvent, deleteEvent, showToast } = useApp();
   const initial = useMemo(() => event || null, [event]);
+  const initialRule = initial?.rrule || '';
+  const initialAllDay = initial?.allDay ?? false;
+  const initialDate = (initial?.start || defaultDate).slice(0, 10);
   const [title, setTitle] = useState(initial?.title || '');
-  const [type, setType] = useState<EventType>(initial?.type || 'dse');
+  const [type, setType] = useState<EventType>(initial?.type || defaultType);
   const [subjectId, setSubjectId] = useState(initial?.subjectId || '');
   const [paper, setPaper] = useState(initial?.paper || '');
-  const [allDay, setAllDay] = useState(initial?.allDay ?? true);
-  const [startDate, setStartDate] = useState((initial?.start || defaultDate).slice(0, 10));
-  const [endDate, setEndDate] = useState((initial?.end || addDays(defaultDate, 1)).slice(0, 10));
+  const [allDay, setAllDay] = useState(initialAllDay);
+  const [startDate, setStartDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState(
+    initial?.end ? initial.end.slice(0, 10) : initialAllDay ? addDays(initialDate, 1) : initialDate,
+  );
   const [startTime, setStartTime] = useState(timePart(initial?.start));
   const [endTime, setEndTime] = useState(timePart(initial?.end) === '09:00' ? '10:00' : timePart(initial?.end));
   const [location, setLocation] = useState(initial?.location || '');
   const [description, setDescription] = useState(initial?.description || '');
+  const [repeat, setRepeat] = useState(Boolean(initialRule));
+  const [repeatFreq, setRepeatFreq] = useState<RepeatFreq>(repeatFrequency(initialRule) || 'WEEKLY');
+  const [customRule, setCustomRule] = useState(Boolean(initialRule) && !isSimpleRule(initialRule));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -41,13 +69,56 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
       setError('請輸入事件名稱。');
       return;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-      setError('請選擇有效日期。');
+    if (!isISODate(startDate)) {
+      setError('請選擇有效的開始日期。');
       return;
     }
-    setSaving(true);
+    if (!isISODate(endDate)) {
+      setError('請選擇有效的結束日期。');
+      return;
+    }
+    if (allDay) {
+      if (endDate <= startDate) {
+        setError('全日事件的結束日期必須晚於開始日期。');
+        return;
+      }
+    } else {
+      if (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)) {
+        setError('時間格式必須為 HH:MM（例：08:30）。');
+        return;
+      }
+      if (endDate < startDate || (endDate === startDate && endTime <= startTime)) {
+        setError('結束時間必須晚於開始時間。');
+        return;
+      }
+    }
+
     const start = allDay ? startDate : `${startDate}T${startTime}:00`;
-    const end = allDay ? endDate || addDays(startDate, 1) : `${startDate}T${endTime}:00`;
+    const end = allDay ? endDate : `${endDate}T${endTime}:00`;
+
+    // Local duplicate guard: same title, type, subject and exact start.
+    const duplicate = allEvents.find(
+      (item) =>
+        !item.deleted &&
+        item.id !== initial?.id &&
+        item.start === start &&
+        item.type === type &&
+        (item.subjectId || '') === (subjectId || '') &&
+        item.title.trim().toLowerCase() === title.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      setError('日曆已有相同名稱、類型、科目及時間的事件。請修改其中一項，或先編輯現有事件。');
+      return;
+    }
+
+    const rrule = repeat
+      ? customRule && initialRule
+        ? initialRule
+        : `FREQ=${repeatFreq}`
+      : undefined;
+
+    setSaving(true);
+    setError('');
     const next: CalendarEvent = {
       id: initial?.id || uid('evt'),
       uid: initial?.uid || stableUid('dse-event'),
@@ -60,7 +131,7 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
       paper: paper.trim().slice(0, 40) || undefined,
       description: description.trim().slice(0, 4000) || undefined,
       location: location.trim().slice(0, 200) || undefined,
-      rrule: initial?.rrule,
+      rrule,
       source: 'local',
       externalId: initial?.externalId,
       etag: initial?.etag,
@@ -69,7 +140,10 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
     try {
       if (initial) await updateEvent(next);
       else await addEvent(next);
+      showToast(initial ? '日曆事件已更新。' : '日曆事件已加入。', 'success');
       onClose();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
     } finally {
       setSaving(false);
     }
@@ -84,7 +158,7 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
 
   return (
     <Modal
-      title={initial ? '編輯日曆事件' : '新增日曆事件'}
+      title={initial ? '編輯考試或事件' : '新增考試或事件'}
       eyebrow={initial ? 'Calendar / edit' : 'Calendar / new'}
       onClose={onClose}
       footer={
@@ -141,14 +215,32 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
         </div>
 
         <label className="row" style={{ gap: 8, color: 'var(--muted)', fontSize: 11 }}>
-          <input type="checkbox" checked={allDay} onChange={(input) => setAllDay(input.target.checked)} />
-          全日事件
+          <input
+            type="checkbox"
+            checked={allDay}
+            onChange={(input) => {
+              const nextAllDay = input.target.checked;
+              setAllDay(nextAllDay);
+              if (nextAllDay && endDate <= startDate) setEndDate(addDays(startDate, 1));
+              if (!nextAllDay && endDate !== startDate) setEndDate(startDate);
+            }}
+          />
+          全日事件（不設時間）
         </label>
 
         <div className="form-grid two">
           <label className="field">
             <span className="label">開始日期</span>
-            <input className="input" type="date" value={startDate} onChange={(input) => setStartDate(input.target.value)} />
+            <input
+              className="input"
+              type="date"
+              value={startDate}
+              onChange={(input) => {
+                const next = input.target.value;
+                setStartDate(next);
+                if (!allDay && (endDate < next || endDate === startDate)) setEndDate(next);
+              }}
+            />
           </label>
           <label className="field">
             <span className="label">{allDay ? '結束日期（exclusive）' : '結束日期'}</span>
@@ -159,15 +251,45 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
         {!allDay ? (
           <div className="form-grid two">
             <label className="field">
-              <span className="label">開始時間</span>
+              <span className="label">開始時間（時:分）</span>
               <input className="input" type="time" value={startTime} onChange={(input) => setStartTime(input.target.value)} />
             </label>
             <label className="field">
-              <span className="label">結束時間</span>
+              <span className="label">結束時間（時:分）</span>
               <input className="input" type="time" value={endTime} onChange={(input) => setEndTime(input.target.value)} />
             </label>
           </div>
         ) : null}
+
+        <div className="setting-row" style={{ padding: '2px 0', borderBottom: 0 }}>
+          <label className="row" style={{ gap: 8, color: 'var(--muted)', fontSize: 11 }}>
+            <input type="checkbox" checked={repeat} onChange={(input) => setRepeat(input.target.checked)} />
+            重複此事件
+          </label>
+          {repeat ? (
+            <div className="row" style={{ gap: 8 }}>
+              <select
+                className="select"
+                value={repeatFreq}
+                onChange={(input) => {
+                  setRepeatFreq(input.target.value as RepeatFreq);
+                  setCustomRule(false);
+                }}
+                disabled={customRule}
+                aria-label="重複頻率"
+              >
+                {REPEAT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              {customRule ? (
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCustomRule(false)}>
+                  改用簡單頻率
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         <div className="form-grid two">
           <label className="field">
@@ -192,7 +314,7 @@ export function EventEditor({ event, defaultDate = todayISO(), onClose }: EventE
         </label>
 
         <div className="notice">
-          DSE 每科可能有多卷／多日；建議逐卷建立事件，總倒數會自動取最近一個 DSE 事件。所有事件都會寫入 .ics 匯出。
+          DSE 每科可能有多卷／多日；建議逐卷建立事件。勾選「重複此事件」後，日曆與 .ics 匯出會按規則展開；相同名稱、科目及時間的事件會被視為重複並阻止儲存。
         </div>
 
         {error ? <div className="notice exam">{error}</div> : null}

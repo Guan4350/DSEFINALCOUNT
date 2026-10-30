@@ -9,7 +9,7 @@ import zhTwLocale from '@fullcalendar/core/locales/zh-tw';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
-import type { CalendarEvent, Task } from '../types';
+import type { CalendarEvent, EventType, Task } from '../types';
 import { EVENT_TYPE_LABEL, TASK_KIND_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { formatFullDate, formatTime, toISODate, todayISO } from '../lib/date';
@@ -77,6 +77,7 @@ export function CalendarView() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>();
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
+  const [eventDefaultType, setEventDefaultType] = useState<EventType>('dse');
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [systemPreview, setSystemPreview] = useState<CalendarEvent | undefined>();
 
@@ -122,9 +123,10 @@ export function CalendarView() {
     [data.tasks, selectedDate],
   );
 
-  const openNewEvent = (date = selectedDate) => {
+  const openNewEvent = (date = selectedDate, type: EventType = 'dse') => {
     setSelectedDate(date);
     setEditingEvent(undefined);
+    setEventDefaultType(type);
     setEventEditorOpen(true);
   };
 
@@ -197,9 +199,13 @@ export function CalendarView() {
             <Icon name="plus" size={14} />
             任務
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => openNewEvent()}>
+          <button type="button" className="btn" onClick={() => openNewEvent(selectedDate, 'custom')}>
             <Icon name="plus" size={14} />
-            事件
+            其他事件
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => openNewEvent(selectedDate, 'dse')}>
+            <Icon name="plus" size={14} />
+            新增考試
           </button>
         </div>
       </div>
@@ -284,6 +290,7 @@ export function CalendarView() {
                     <span className="day-event-meta">
                       {EVENT_TYPE_LABEL[event.type]} · {event.allDay ? '全日' : formatTime(event.start)}
                       {event.paper ? ` · ${event.paper}` : ''}
+                      {event.rrule ? ' · 重複' : ''}
                     </span>
                   </span>
                   <Icon name="chevron-right" size={13} />
@@ -329,9 +336,13 @@ export function CalendarView() {
           ) : null}
 
           <div className="day-panel-foot">
-            <button type="button" className="btn btn-primary" onClick={() => openNewEvent(selectedDate)}>
+            <button type="button" className="btn btn-primary" onClick={() => openNewEvent(selectedDate, 'dse')}>
               <Icon name="plus" size={13} />
-              在這日加入事件
+              新增考試
+            </button>
+            <button type="button" className="btn" onClick={() => openNewEvent(selectedDate, 'custom')}>
+              <Icon name="plus" size={13} />
+              其他事件
             </button>
             <button type="button" className="btn" onClick={openNewTask}>
               <Icon name="plus" size={13} />
@@ -345,6 +356,7 @@ export function CalendarView() {
         <EventEditor
           event={editingEvent}
           defaultDate={selectedDate}
+          defaultType={eventDefaultType}
           onClose={() => {
             setEventEditorOpen(false);
             setEditingEvent(undefined);
