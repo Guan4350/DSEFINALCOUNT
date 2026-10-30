@@ -26,6 +26,7 @@ export function useSecondTick(offsetMs = 0): number {
     let interval: number | undefined;
     let timeout: number | undefined;
     const tick = () => setNow(Date.now() + offsetMs);
+    tick();
     const delay = 1000 - (Date.now() % 1000);
 
     timeout = window.setTimeout(() => {
@@ -92,7 +93,7 @@ export function formatHKClock(nowMs: number): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   }).format(new Date(nowMs));
 }
 
