@@ -51,6 +51,12 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # A freshly pushed repository may not have Pages enabled yet. This
+          # creates the Pages site (build_type: workflow) using the
+          # `pages: write` permission declared above, so the first run does
+          # not fail with "Get Pages site failed".
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
