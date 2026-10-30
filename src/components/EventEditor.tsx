@@ -55,7 +55,7 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
     initial?.end ? initial.end.slice(0, 10) : initialAllDay ? addDays(initialDate, 1) : initialDate,
   );
   const [startTime, setStartTime] = useState(timePart(initial?.start));
-  const [endTime, setEndTime] = useState(timePart(initial?.end) === '09:00' ? '10:00' : timePart(initial?.end));
+  const [endTime, setEndTime] = useState(initial?.end ? timePart(initial.end) : '10:00');
   const [location, setLocation] = useState(initial?.location || '');
   const [description, setDescription] = useState(initial?.description || '');
   const [repeat, setRepeat] = useState(Boolean(initialRule));
