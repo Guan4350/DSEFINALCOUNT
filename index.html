@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="DSE Candidate Personal Learning Dashboard — 月曆、分層倒數、任務、錯題相簿、金色熱力圖與私人學習分析。"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DSE Candidate" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icons/icon.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon.svg" />
+    <title>DSE Candidate — Personal Learning Dashboard</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('dse-candidate:theme') === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0B1622' : '#ffffff');
+        } catch (error) {}
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

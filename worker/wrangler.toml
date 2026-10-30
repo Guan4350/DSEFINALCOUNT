@@ -1,0 +1,26 @@
+name = "dse-calendar-bridge"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+workers_dev = true
+
+# Public front-end origin(s). Comma-separated. Set this to your GitHub Pages
+# origin, e.g. "https://your-name.github.io". Local dev may add localhost.
+[vars]
+APP_ORIGIN = "http://localhost:5173"
+FIREBASE_PROJECT_ID = "replace-with-your-project-id"
+GOOGLE_REDIRECT_URI = ""
+WEBHOOK_BASE_URL = ""
+ALLOWED_CALDAV_HOSTS = ""
+
+# Cron polling for CalDAV (iCloud has no webhook). Keep it modest to protect
+# the Spark quota. Google Calendar uses OAuth push channels when configured.
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Required secrets (wrangler secret put ...):
+#   FIREBASE_SERVICE_ACCOUNT  entire service-account JSON (Firestore Admin)
+#   CALDAV_ENC_KEY            base64-encoded 32-byte AES-GCM key
+#   STATE_SECRET              long random string for OAuth state JWTs
+#   GOOGLE_CLIENT_ID          optional, for Google Calendar OAuth
+#   GOOGLE_CLIENT_SECRET      optional, for Google Calendar OAuth
+#   WEBHOOK_BASE_URL          optional, public Worker origin for Google push

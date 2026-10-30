@@ -1,0 +1,288 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
+    }
+
+    function isDate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isEventStart(value) {
+      return value is string
+        && value.size() <= 32
+        && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2})?)?$');
+    }
+
+    function completedTaskOn(taskId, date) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)/tasks/$(taskId)).data.completed == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/tasks/$(taskId)).data.completedDate == date;
+    }
+
+    function taskShape() {
+      return request.resource.data.keys().hasOnly([
+        'title', 'subjectId', 'dueDate', 'dueTime', 'completed', 'completedAt',
+        'completedDate', 'notes', 'kind', 'createdAt', 'updatedAt', 'rolledFrom',
+        'rolloverCount', 'source'
+      ])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 180
+        && request.resource.data.subjectId is string && request.resource.data.subjectId.size() <= 64
+        && isDate(request.resource.data.dueDate)
+        && request.resource.data.dueTime is string && request.resource.data.dueTime.size() <= 5
+        && request.resource.data.completed is bool
+        && (request.resource.data.completedAt == null || request.resource.data.completedAt is timestamp)
+        && request.resource.data.completedDate is string && (request.resource.data.completedDate == '' || isDate(request.resource.data.completedDate))
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
+        && request.resource.data.kind in ['study', 'revision', 'assignment', 'other']
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.rolledFrom is string && request.resource.data.rolledFrom.size() <= 10
+        && request.resource.data.rolloverCount is int && request.resource.data.rolloverCount >= 0 && request.resource.data.rolloverCount <= 1000
+        && request.resource.data.source in ['local', 'ics', 'caldav', 'google'];
+    }
+
+    function eventShape() {
+      return request.resource.data.keys().hasOnly([
+        'uid', 'title', 'start', 'end', 'allDay', 'type', 'subjectId', 'paper',
+        'description', 'location', 'rrule', 'source', 'externalId', 'etag',
+        'updatedAt', 'deleted'
+      ])
+        && request.resource.data.uid is string && request.resource.data.uid.size() > 0 && request.resource.data.uid.size() <= 200
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 180
+        && isEventStart(request.resource.data.start)
+        && request.resource.data.end is string && request.resource.data.end.size() <= 32
+        && request.resource.data.allDay is bool
+        && request.resource.data.type in ['dse', 'mock', 'school', 'sba', 'study', 'custom']
+        && request.resource.data.subjectId is string && request.resource.data.subjectId.size() <= 64
+        && request.resource.data.paper is string && request.resource.data.paper.size() <= 40
+        && request.resource.data.description is string && request.resource.data.description.size() <= 4000
+        && request.resource.data.location is string && request.resource.data.location.size() <= 200
+        && request.resource.data.rrule is string && request.resource.data.rrule.size() <= 1000
+        && request.resource.data.source in ['local', 'ics', 'caldav', 'google']
+        && request.resource.data.externalId is string && request.resource.data.externalId.size() <= 500
+        && request.resource.data.etag is string && request.resource.data.etag.size() <= 500
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.deleted is bool;
+    }
+
+    function checkinShape(date) {
+      return request.resource.data.keys().hasOnly([
+        'date', 'completedTaskCount', 'taskId', 'createdAt', 'source'
+      ])
+        && request.resource.data.date == date
+        && isDate(request.resource.data.date)
+        && request.resource.data.completedTaskCount is int && request.resource.data.completedTaskCount >= 1 && request.resource.data.completedTaskCount <= 100
+        && request.resource.data.taskId is string && request.resource.data.taskId.size() > 0 && request.resource.data.taskId.size() <= 200
+        && request.resource.data.taskId.matches('^[^/]+$')
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.source == 'cloud'
+        && completedTaskOn(request.resource.data.taskId, date);
+    }
+
+    function statsShape() {
+      return request.resource.data.keys().hasOnly([
+        'currentStreak', 'longestStreak', 'totalDays', 'lastCheckinDate', 'updatedAt'
+      ])
+        && request.resource.data.currentStreak is int && request.resource.data.currentStreak >= 0 && request.resource.data.currentStreak <= 10000
+        && request.resource.data.longestStreak is int && request.resource.data.longestStreak >= 0 && request.resource.data.longestStreak <= 10000
+        && request.resource.data.totalDays is int && request.resource.data.totalDays >= 0 && request.resource.data.totalDays <= 10000
+        && request.resource.data.lastCheckinDate is string && isDate(request.resource.data.lastCheckinDate)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function settingsShape() {
+      return request.resource.data.keys().hasOnly([
+        'dseYear', 'dseStartDate', 'dseEndDate', 'studyStartDate',
+        'hiddenSystemExamIds', 'semesterMode', 'timezone', 'updatedAt'
+      ])
+        && request.resource.data.dseYear is int && request.resource.data.dseYear >= 2020 && request.resource.data.dseYear <= 2100
+        && request.resource.data.dseStartDate is string && request.resource.data.dseStartDate.size() <= 10
+        && request.resource.data.dseEndDate is string && request.resource.data.dseEndDate.size() <= 10
+        && request.resource.data.studyStartDate is string && request.resource.data.studyStartDate.size() <= 10
+        && request.resource.data.hiddenSystemExamIds is list && request.resource.data.hiddenSystemExamIds.size() <= 500
+        && request.resource.data.semesterMode in ['auto', 's1', 's2', 'mock', 'dse', 'holiday']
+        && request.resource.data.timezone == 'Asia/Hong_Kong'
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function leaderboardShape() {
+      return request.resource.data.keys().hasOnly([
+        'uid', 'displayName', 'currentStreak', 'totalDays', 'visible',
+        'writes', 'windowStart', 'updatedAt'
+      ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 40
+        && request.resource.data.currentStreak is int && request.resource.data.currentStreak >= 0 && request.resource.data.currentStreak <= 10000
+        && request.resource.data.totalDays is int && request.resource.data.totalDays >= 0 && request.resource.data.totalDays <= 10000
+        && request.resource.data.visible is bool
+        && request.resource.data.writes is int && request.resource.data.writes >= 1 && request.resource.data.writes <= 20
+        && request.resource.data.windowStart is timestamp
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    /*
+     * Rate limit for the public board.
+     *
+     * `writes` counts metered changes (display name, streak, total days) in a
+     * rolling one-hour window anchored at `windowStart`. Inside the window the
+     * counter may only grow by one and never above 20. Once the window has
+     * expired the only accepted write is a reset to 1 anchored at
+     * request.time. A client therefore cannot reset the counter early, and a
+     * script cannot rewrite public metrics thousands of times per hour.
+     *
+     * Changing only `visible` (opting out for privacy) is exempt and must stay
+     * instant.
+     */
+    function leaderboardMeteredChange() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['displayName', 'currentStreak', 'totalDays']);
+    }
+
+    function leaderboardSameWindow() {
+      return request.resource.data.windowStart == resource.data.windowStart;
+    }
+
+    function leaderboardBudgetUpdate() {
+      return leaderboardMeteredChange()
+        ? (request.time < resource.data.windowStart + duration.value(1, 'h')
+            ? request.resource.data.writes == resource.data.writes + 1
+              && request.resource.data.writes <= 20
+              && leaderboardSameWindow()
+            : request.resource.data.writes == 1
+              && request.resource.data.windowStart == request.time)
+        : request.resource.data.writes == resource.data.writes
+          && leaderboardSameWindow();
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly([
+          'displayName', 'leaderboardOptIn', 'photoURL', 'email', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.leaderboardOptIn is bool
+        && request.resource.data.photoURL is string
+        && request.resource.data.photoURL.size() <= 1000
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isSelf(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'leaderboardOptIn', 'photoURL', 'email', 'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
+        && request.resource.data.leaderboardOptIn is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      match /tasks/{taskId} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) && taskShape();
+        allow update: if isSelf(uid)
+          && taskShape()
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isSelf(uid);
+      }
+
+      match /events/{eventId} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) && eventShape();
+        allow update: if isSelf(uid) && eventShape();
+        allow delete: if isSelf(uid);
+      }
+
+      // One document per date is the one-per-day lock. The create must
+      // reference this user's own task, completed on exactly this date.
+      match /checkins/{date} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) && checkinShape(date);
+        allow update, delete: if false;
+      }
+
+      match /meta/stats {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && statsShape();
+        allow delete: if false;
+      }
+
+      match /meta/settings {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && settingsShape();
+        allow delete: if false;
+      }
+
+      match /meta/{docId} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      match /reflections/{date} {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid)
+          && request.resource.data.keys().hasOnly(['date', 'text', 'updatedAt'])
+          && isDate(request.resource.data.date)
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 5000
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isSelf(uid);
+      }
+
+      match /calendarConnections/{connectionId} {
+        allow read, write: if false;
+      }
+
+      match /syncLogs/{logId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Public streak board. Only the owner writes; hidden docs are readable by
+    // the owner only. Metric writes are rate-limited (20 per rolling hour).
+    match /leaderboard/{uid} {
+      allow read: if signedIn() && (isSelf(uid) || resource.data.visible == true);
+      allow create: if isSelf(uid)
+        && leaderboardShape()
+        && request.resource.data.writes == 1
+        && request.resource.data.windowStart == request.time;
+      allow update: if isSelf(uid)
+        && leaderboardShape()
+        && leaderboardBudgetUpdate();
+      allow delete: if isSelf(uid);
+    }
+
+    // System timetable: public read, admin write only.
+    match /systemExams/{year} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin markers are created manually in Firebase Console. No client write.
+    match /admins/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "dse-calendar-bridge",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "hono": "4.10.4",
+    "ical.js": "2.2.1",
+    "jose": "6.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20251011.0",
+    "typescript": "5.9.3",
+    "wrangler": "4.42.0"
+  }
+}
