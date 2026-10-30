@@ -84,6 +84,8 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`. If you deployed an earlier build, **republish these rules** before changing the clock or subject selection in Mode B; otherwise Firestore rejects the settings write with `permission-denied`.
+
 Manual smoke checks after publishing:
 
 1. Sign in with Google.
@@ -92,6 +94,9 @@ Manual smoke checks after publishing:
 4. Open the leaderboard and opt in; `leaderboard/{uid}` should exist with `visible: true`, `writes` ≥ 1 and a `windowStart` timestamp.
 5. Opt out; `visible` should become false and the row should disappear for other signed-in users.
 6. Press **手動更新**; the board should re-read immediately. Leave it open for 60 seconds to see the automatic poll (no realtime listener is opened).
+7. Open the calendar, create an exam with a time and a repeat rule; confirm it appears in month/week and under `users/{uid}/events`.
+8. Open **設定 → DSE 選科**, untick one subject; confirm the dashboard countdown changes. In Firestore, `meta/settings` should contain `selectedSubjectIds` and `clockOffsetMs`.
+9. Calibrate the clock by ±1 second; confirm the countdown updates immediately and the setting survives a reload.
 
 ### Indexes
 

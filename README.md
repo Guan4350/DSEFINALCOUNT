@@ -14,6 +14,9 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 ## What is included
 
 - **FullCalendar** month / week / day / list views.
+- **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
+- **High-precision countdown** — the dashboard shows the nearest selected exam as **X days HH:MM:SS**, refreshed every second against an explicitly Hong Kong (UTC+8) timestamp. A settings panel compares the device clock with time.is / HKEAA and stores a bounded ±5-minute correction.
+- **DSE subject focus** — opt in to the subjects you actually sit (core subjects and individual electives); the hero countdown filters to those subjects only, with a horizontally scrollable switcher when several exams are close. Selection syncs to Firestore in Mode B and localStorage in Mode A.
 - **Layered DSE countdowns** — first paper, every subject's next paper, Mock, school exam and SBA.
 - **2025 HKEAA timetable base** — finalised written timetable transcribed from the [HKEAA circular](https://www.hkeaa.edu.hk/DocLibrary/Circulars/HKDSE/HKDSE_Finalised_Examination_Timetable_for_2025_Examination.pdf); users can hide system events but cannot edit or delete them. The default DSE year is the next exam year that has not passed (e.g. October 2026 defaults to 2027); later years shift the 2025 dates and are labelled **預估日期，一切以 HKEAA 正式公告為準**.
 - **Tasks** — subject label, due date, completion, notes, and idempotent next-day rollover.
@@ -109,7 +112,8 @@ users/{uid}/meta/stats
 
 users/{uid}/meta/settings
   dseYear, dseStartDate, dseEndDate, studyStartDate,
-  hiddenSystemExamIds, semesterMode, timezone, updatedAt
+  hiddenSystemExamIds, semesterMode, timezone,
+  clockOffsetMs, selectedSubjectIds, updatedAt
 
 users/{uid}/reflections/{YYYY-MM-DD}
   date, text, updatedAt

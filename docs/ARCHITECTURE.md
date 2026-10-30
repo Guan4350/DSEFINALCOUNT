@@ -63,7 +63,8 @@ users/{uid}/meta/stats
 
 users/{uid}/meta/settings
   dseYear, dseStartDate, dseEndDate, studyStartDate,
-  hiddenSystemExamIds, semesterMode, timezone, updatedAt
+  hiddenSystemExamIds, semesterMode, timezone,
+  clockOffsetMs, selectedSubjectIds, updatedAt
 
 users/{uid}/reflections/{YYYY-MM-DD}
   date, text, updatedAt
@@ -108,7 +109,38 @@ The check-in document ID itself is the primary one-per-day lock. Rules deny upda
 - No tasks, images, notes or study minutes are copied to the leaderboard.
 - Writes are triggered only by check-in/profile sync/import, not by the poll. Firestore rules enforce one check-in per date, ownership and the write budget; they do not compute streaks.
 
-## 6. System DSE timetable
+## 6. Calendar, countdown and subject focus
+
+### Two-way calendar
+
+`CalendarView` uses FullCalendar month (default), week, day and list views. Clicking/selecting a date opens the exam editor; clicking an existing event or task opens the same editor for that record. New or edited records flow back through `AppContext` → `localStorage` immediately and → `users/{uid}/events` in Mode B, so FullCalendar re-renders from the same `allEvents` array.
+
+The event editor validates:
+
+- title, ISO date and `HH:MM` time (when not all-day);
+- end after start (same-day or multi-day);
+- duplicate title + type + subject + exact start (including read-only system exams);
+- optional recurrence (`FREQ=DAILY|WEEKLY|MONTHLY`), preserved as an RRULE for FullCalendar and `.ics`.
+
+### High-precision countdown
+
+`src/lib/clock.ts` is the clock boundary:
+
+- `eventStartMs` parses a stored wall-clock time as **UTC+8**, so a 08:30 HKEAA paper stays 08:30 even if the viewer’s device is in another timezone.
+- `useSecondTick` aligns a one-second interval to the system clock.
+- `countdownParts` returns days / hours / minutes / seconds and a past flag.
+- `clockOffsetMs` is a user-entered correction, bounded to ±5 minutes. The settings panel compares the live Hong Kong clock with time.is/HKEAA and writes the offset to `meta/settings` (Mode B) or localStorage (Mode A).
+
+`src/lib/exams.ts` filters exam types (`dse`, `mock`, `school`, `sba`), sorts by the exact HKT timestamp, keeps all-day exams visible for the rest of their day, and optionally filters by selected subject IDs.
+
+### Subject focus
+
+`settings.selectedSubjectIds` is a validated string array. The dashboard builds a Set from it and only offers exams whose `subjectId` is selected. If none are selected it shows a prompt; if several selected exams are close, a horizontally scrollable rail plus previous/next controls changes the active countdown. The original per-subject sidebar and `DSE 首科` footer remain available.
+
+Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settings panel offers common DSE elective presets. `systemExams` maps a subject by exact name first, then by name containment, then to the generic elective subject.
+
+
+## 7. System DSE timetable
 
 `src/data/dse2025.ts` contains the 2025 HKEAA finalised written timetable (subject, paper, date, start/end). `src/lib/systemExams.ts`:
 
@@ -119,7 +151,7 @@ The check-in document ID itself is the primary one-per-day lock. Rules deny upda
 
 Users store only `hiddenSystemExamIds`; they never mutate the system dataset. Admin writes are gated by `admins/{uid}`.
 
-## 7. Theme system
+## 8. Theme system
 
 `tailwind.config.ts` is the single source for both palettes:
 
@@ -131,7 +163,7 @@ Users store only `hiddenSystemExamIds`; they never mutate the system dataset. Ad
 
 The media/PDF/image previews still use neutral grays from variables; no component structure or font family changed.
 
-## 8. Images
+## 9. Images
 
 Images are compressed to WebP (max 1280 px, quality 0.72), then stored as data URLs in localStorage. Caps:
 
@@ -141,7 +173,7 @@ Images are compressed to WebP (max 1280 px, quality 0.72), then stored as data U
 
 No Firebase Storage is initialised. Images are excluded from cloud sync by design.
 
-## 9. Local data import
+## 10. Local data import
 
 `importLocalData()`:
 
@@ -154,11 +186,11 @@ No Firebase Storage is initialised. Images are excluded from cloud sync by desig
 
 Stable local IDs make this idempotent for tasks/events/reflections/settings. Check-in document IDs make it idempotent for dates.
 
-## 10. Deferred Mode C
+## 11. Deferred Mode C
 
 The `worker/` folder is an earlier prototype for CalDAV / Google Calendar. It is **not** imported by the Mode B client, not referenced in Settings, and not needed for deployment. It should be treated as design reference only until Mode C is explicitly started.
 
-## 11. Non-goals
+## 12. Non-goals
 
 - No public study-detail leaderboard.
 - No Firebase Storage images.

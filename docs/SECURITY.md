@@ -21,7 +21,7 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `users/{uid}/events/{id}` | own | own, validated shape; `updatedAt == request.time` |
 | `users/{uid}/checkins/{date}` | own | **create only**; must reference own task with `completedDate == date` |
 | `users/{uid}/meta/stats` | own | own, validated stats shape |
-| `users/{uid}/meta/settings` | own | own, validated settings shape |
+| `users/{uid}/meta/settings` | own | own, validated settings shape incl. `clockOffsetMs` and `selectedSubjectIds` |
 | `users/{uid}/reflections/{date}` | own | own, ≤5,000 chars |
 | `leaderboard/{uid}` | signed-in and (own or `visible == true`) | own only, validated shape, 20 metered writes/hour |
 | `systemExams/{year}` | public read | admin only |
