@@ -130,11 +130,12 @@ The app ships with a local transcription of the 2025 HKEAA finalised written tim
 For an admin:
 
 1. **設定 → Admin / HKEAA**.
-2. **寫入 2025 HKEAA 基底** writes `systemExams/2025`.
-3. For another year, paste a JSON array and choose the target year, or adjust the selected DSE year and use the admin JSON uploader.
-4. Normal users can only hide system events; they cannot edit or delete them.
+2. **寫入 2025 HKEAA 基底** writes `systemExams/2025` with `timezone: 'Asia/Hong_Kong'` and the recurso reference URL.
+3. **載入目前時間表** loads the active year into the JSON editor; edit the UTC+8 dates/times, then **上傳 JSON**. The app validates ISO dates, `HH:MM`, end-after-start, duplicate IDs/slots, subject categories and the 500-event cap before writing.
+4. For another year, choose the target year and load/paste that year's JSON. The admin preview shows every date/time before upload.
+5. Normal users can only hide system events; they cannot edit or delete them. Only an `admins/{uid}` account can write `systemExams`.
 
-The app labels non-2025 years as estimates. Estimate logic shifts the 2025 month/day by the year difference; it does not model HKEAA's weekday decisions. Always check [HKEAA](https://www.hkeaa.edu.hk/en/hkdse/event_timetable/).
+The app labels non-2025 years as estimates. Estimate logic shifts the 2025 month/day by the year difference; it does not model HKEAA's weekday decisions. Always check [HKEAA](https://www.hkeaa.edu.hk/en/hkdse/event_timetable/) and the [recurso countdown reference](https://recurso.com.hk/tools/countdown/) for the current time baseline.
 
 ---
 

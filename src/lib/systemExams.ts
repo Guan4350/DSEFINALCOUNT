@@ -1,17 +1,26 @@
 import type { CalendarEvent, Subject } from '../types';
 import { DSE_BASE_YEAR, DSE_2025_EVENTS, defaultDseYear, estimatedTimetable, type SystemExamEvent } from '../data/dse2025';
 
+export const RECURSO_COUNTDOWN_URL = 'https://recurso.com.hk/tools/countdown/';
+
 export interface OfficialTimetable {
   year: number;
   source: 'official' | 'estimated';
   label: string;
   events: SystemExamEvent[];
+  timezone: 'Asia/Hong_Kong';
+  referenceUrl: string;
   updatedAt?: string;
 }
 
 export function timetableForYear(year: number, official?: OfficialTimetable): OfficialTimetable {
   if (official && official.year === year && official.events.length) {
-    return { ...official, source: 'official' };
+    return {
+      ...official,
+      source: 'official',
+      timezone: official.timezone || 'Asia/Hong_Kong',
+      referenceUrl: official.referenceUrl || RECURSO_COUNTDOWN_URL,
+    };
   }
   if (year === DSE_BASE_YEAR) {
     return {
@@ -19,6 +28,8 @@ export function timetableForYear(year: number, official?: OfficialTimetable): Of
       source: 'official',
       label: '2025 HKEAA 官方時間表',
       events: DSE_2025_EVENTS,
+      timezone: 'Asia/Hong_Kong',
+      referenceUrl: RECURSO_COUNTDOWN_URL,
     };
   }
   return {
@@ -26,6 +37,8 @@ export function timetableForYear(year: number, official?: OfficialTimetable): Of
     source: 'estimated',
     label: `預估 ${year} 考期（以 2025 HKEAA 時間表年份 +${year - DSE_BASE_YEAR} 推算）`,
     events: estimatedTimetable(year),
+    timezone: 'Asia/Hong_Kong',
+    referenceUrl: RECURSO_COUNTDOWN_URL,
   };
 }
 

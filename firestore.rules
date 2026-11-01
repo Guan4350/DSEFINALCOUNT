@@ -173,6 +173,31 @@ service cloud.firestore {
           && leaderboardSameWindow();
     }
 
+    /*
+     * Exam data is shared reference data. Only an admin may replace a year, and
+     * the stored timetable must declare Hong Kong time plus the recurso
+     * reference used for manual time comparison.
+     */
+    function systemExamShape() {
+      return request.resource.data.keys().hasOnly([
+        'year', 'source', 'label', 'events', 'timezone', 'referenceUrl', 'updatedAt'
+      ])
+        && request.resource.data.year is int
+        && request.resource.data.year >= 2020
+        && request.resource.data.year <= 2100
+        && request.resource.data.source == 'official'
+        && request.resource.data.label is string
+        && request.resource.data.label.size() > 0
+        && request.resource.data.label.size() <= 200
+        && request.resource.data.events is list
+        && request.resource.data.events.size() > 0
+        && request.resource.data.events.size() <= 500
+        && request.resource.data.timezone == 'Asia/Hong_Kong'
+        && request.resource.data.referenceUrl is string
+        && request.resource.data.referenceUrl.size() <= 300
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /users/{uid} {
       allow read: if isSelf(uid);
       allow create: if isSelf(uid)
@@ -278,7 +303,7 @@ service cloud.firestore {
     // System timetable: public read, admin write only.
     match /systemExams/{year} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && systemExamShape();
     }
 
     // Admin markers are created manually in Firebase Console. No client write.

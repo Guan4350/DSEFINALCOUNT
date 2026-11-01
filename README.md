@@ -27,7 +27,7 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 - **Analytics** — per-subject completion, 8-week trend, task-based exam readiness.
 - **Daily reflection** — debounced autosave, synced in Mode B.
 - **Opt-in leaderboard** — only display name, current streak and total days; default hidden; polled every 60 seconds while the page is visible, with a manual refresh button and no persistent realtime listener.
-- **Admin timetable updates** — `admins/{uid}` accounts can replace `systemExams/{year}`; normal users can only hide entries.
+- **Admin timetable updates** — `admins/{uid}` accounts can replace `systemExams/{year}` with validated UTC+8 events (manual JSON editor + current-timetable preview); normal users can only read and locally hide entries.
 
 ## Quick start
 
@@ -125,7 +125,8 @@ leaderboard/{uid}
   writes, windowStart, updatedAt   (writes/windowStart = one-hour rate budget)
 
 systemExams/{year}
-  year, source, label, events[], updatedAt   (admin write only)
+  year, source, label, events[],
+  timezone: 'Asia/Hong_Kong', referenceUrl, updatedAt   (admin write only)
 
 admins/{uid}
   active: true                               (created manually in console)

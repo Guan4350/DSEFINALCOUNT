@@ -24,7 +24,7 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `users/{uid}/meta/settings` | own | own, validated settings shape incl. `clockOffsetMs` and `selectedSubjectIds` |
 | `users/{uid}/reflections/{date}` | own | own, ≤5,000 chars |
 | `leaderboard/{uid}` | signed-in and (own or `visible == true`) | own only, validated shape, 20 metered writes/hour |
-| `systemExams/{year}` | public read | admin only |
+| `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
 | legacy Worker paths | deny | deny |
 | everything else | deny | deny |
@@ -67,7 +67,7 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 
 - Admin markers are manually created in Firestore Console: `admins/{auth.uid}` with `active: true`.
 - Rules allow reading your own admin marker only; no client can create/update/delete an admin marker.
-- `systemExams/{year}` write requires `exists(admins/{uid})`.
+- `systemExams/{year}` write requires `exists(admins/{uid})` and the document shape (`timezone == 'Asia/Hong_Kong'`, non-empty `events`, bounded `referenceUrl`).
 - The app shows the admin section only after reading the marker.
 - Never put an admin UID or service-account credential in a `VITE_*` variable as an authorization mechanism.
 

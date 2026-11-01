@@ -1278,6 +1278,13 @@
   background: var(--event-custom-bg) !important;
 }
 
+/* Official HKEAA timetable events: same red exam family, dashed gold edge so
+   users can see they are read-only system data rather than their own event. */
+.event-system {
+  border-left-style: dashed !important;
+  border-left-color: var(--accent) !important;
+}
+
 .event-past {
   opacity: 0.55;
 }
@@ -1317,6 +1324,12 @@
 .legend-swatch.custom {
   border-color: var(--muted);
   background: var(--event-custom-bg);
+}
+
+.legend-swatch.system {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: var(--accent-soft);
 }
 
 .day-panel {
@@ -1379,6 +1392,10 @@
 
 .day-event.custom .day-event-bar {
   background: var(--muted);
+}
+
+.day-event.system .day-event-bar {
+  background: var(--accent);
 }
 
 .day-event-title {
@@ -2042,6 +2059,60 @@
 .settings-section {
   display: grid;
   gap: 0;
+}
+
+/* Admin timetable preview: a compact, scrollable audit view of the shared
+   systemExams data before/after a manual edit. */
+.admin-timetable-preview {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+
+.admin-timetable-preview > summary {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-timetable-preview > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-timetable-preview > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 7px;
+  color: var(--accent-strong);
+  transition: transform 0.2s ease-out;
+}
+
+.admin-timetable-preview[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.admin-timetable-list {
+  display: grid;
+  max-height: 280px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+}
+
+.admin-timetable-row {
+  display: grid;
+  grid-template-columns: 132px minmax(100px, 0.55fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+}
+
+.admin-timetable-row:last-child {
+  border-bottom: 0;
 }
 
 .setting-row {

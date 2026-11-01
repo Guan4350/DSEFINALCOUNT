@@ -493,9 +493,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           source: 'official',
           label: `${year} HKEAA 官方時間表`,
           events,
+          timezone: 'Asia/Hong_Kong',
+          referenceUrl: 'https://recurso.com.hk/tools/countdown/',
         });
       }
-      showToast('官方時間表已更新。', 'success');
+      showToast(`官方時間表已更新（${events.length} 項，UTC+8）。`, 'success');
     },
     [data.settings.dseYear, isAdmin, showToast, user],
   );

@@ -74,7 +74,8 @@ leaderboard/{uid}
   writes, windowStart, updatedAt
 
 systemExams/{year}
-  year, source, label, events[], updatedAt   (admin write only)
+  year, source, label, events[], timezone, referenceUrl, updatedAt
+  (public read; admin write only)
 
 admins/{uid}
   active: true                               (manual console setup)
@@ -135,7 +136,7 @@ The event editor validates:
 
 ### Subject focus
 
-`settings.selectedSubjectIds` is a validated string array. The dashboard builds a Set from it and only offers exams whose `subjectId` is selected. If none are selected it shows a prompt; if several selected exams are close, a horizontally scrollable rail plus previous/next controls changes the active countdown. The original per-subject sidebar and `DSE 首科` footer remain available.
+`settings.selectedSubjectIds` is a validated string array. The dashboard builds a Set from it and only offers exams whose `subjectId` is selected. The hero, the per-subject sidebar and the upcoming-exam list all apply that filter; the `DSE 首科` footer remains as a clearly-labelled global reference. If none are selected the dashboard shows a prompt; if several selected exams are close, a horizontally scrollable rail plus previous/next controls changes the active countdown.
 
 Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settings panel offers common DSE elective presets. `systemExams` maps a subject by exact name first, then by name containment, then to the generic elective subject.
 
@@ -146,6 +147,7 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 - Converts the system dataset to read-only calendar events.
 - Uses a Firestore `systemExams/{year}` document when an admin has published one.
+- `systemExams` documents declare `timezone: 'Asia/Hong_Kong'`, a `referenceUrl` (recurso DSE Countdown) and `updatedAt`; admins can load the current timetable into the JSON editor, validate every date/time, and replace it. The rules require this shape, and only an admin can write.
 - Otherwise, for a non-2025 year, shifts the 2025 month/day by `year - 2025` and marks every event `estimated`.
 - Maps common core subjects to the default subject IDs; electives map to the user's custom elective subject when the name matches.
 

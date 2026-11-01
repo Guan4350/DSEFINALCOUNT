@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import type { Checkin, Stats } from '../types';
 import type { SystemExamEvent } from '../data/dse2025';
-import type { OfficialTimetable } from './systemExams';
+import { RECURSO_COUNTDOWN_URL, type OfficialTimetable } from './systemExams';
 import { db } from './firebase';
 import { addDays } from './date';
 import { recordUsage } from './usage';
@@ -96,6 +96,8 @@ export async function fetchOfficialTimetable(year: number): Promise<OfficialTime
     source: 'official',
     label: stringValue(data.label, `${year} HKEAA 官方時間表`),
     events,
+    timezone: 'Asia/Hong_Kong',
+    referenceUrl: stringValue(data.referenceUrl, RECURSO_COUNTDOWN_URL),
     updatedAt: stamp(data.updatedAt),
   };
 }
@@ -107,6 +109,8 @@ export async function saveOfficialTimetable(year: number, events: SystemExamEven
     source: 'official',
     label: `${year} HKEAA 官方時間表`,
     events,
+    timezone: 'Asia/Hong_Kong',
+    referenceUrl: RECURSO_COUNTDOWN_URL,
     updatedAt: serverTimestamp(),
   });
   recordUsage(0, 1);

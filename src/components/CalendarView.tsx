@@ -92,6 +92,7 @@ export function CalendarView() {
         allDay: event.allDay,
         classNames: [
           isExamType(event.type) ? 'event-exam' : event.type === 'study' ? 'event-task' : 'event-custom',
+          event.source === 'system' ? 'event-system' : '',
           event.start.slice(0, 10) < todayISO() ? 'event-past' : '',
         ].filter(Boolean),
         rrule: rruleWithStart(event),
@@ -251,6 +252,7 @@ export function CalendarView() {
           />
           <div className="calendar-legend">
             <span className="legend-item"><span className="legend-swatch exam" /> 考試 / 截止</span>
+            <span className="legend-item"><span className="legend-swatch system" /> 官方 DSE（唯讀）</span>
             <span className="legend-item"><span className="legend-swatch task" /> 任務 / 溫習</span>
             <span className="legend-item"><span className="legend-swatch custom" /> 自訂事件</span>
             <span className="legend-item" style={{ marginLeft: 'auto' }}>
@@ -273,7 +275,7 @@ export function CalendarView() {
               selectedEvents.map((event) => (
                 <button
                   type="button"
-                  className={`day-event${isExamType(event.type) ? ' exam' : event.type === 'custom' ? ' custom' : ''}`}
+                  className={`day-event${isExamType(event.type) ? ' exam' : event.type === 'custom' ? ' custom' : ''}${event.source === 'system' ? ' system' : ''}`}
                   key={event.id}
                   onClick={() => {
                     if (event.source === 'system') {
@@ -291,6 +293,7 @@ export function CalendarView() {
                       {EVENT_TYPE_LABEL[event.type]} · {event.allDay ? '全日' : formatTime(event.start)}
                       {event.paper ? ` · ${event.paper}` : ''}
                       {event.rrule ? ' · 重複' : ''}
+                      {event.source === 'system' ? ' · 官方唯讀' : ''}
                     </span>
                   </span>
                   <Icon name="chevron-right" size={13} />

@@ -4,6 +4,8 @@ import { SUBJECT_CATEGORY_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { DSE_2025_EVENTS, type SystemExamEvent } from '../data/dse2025';
 import { clampOffset, formatHKClock, formatOffset, offsetFromReference, useSecondTick } from '../lib/clock';
+import { isISODate } from '../lib/date';
+import { RECURSO_COUNTDOWN_URL } from '../lib/systemExams';
 import { UsagePanel } from './UsagePanel';
 import { Icon } from './Icons';
 
@@ -25,6 +27,69 @@ const ELECTIVE_PRESETS = [
   '倫理與宗教', '中國文學', '英語文學', '科技與生活',
   '健康管理與社會關懷', '旅遊與款待', '設計與應用科技',
 ];
+
+const ADMIN_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const ADMIN_CATEGORIES: SystemExamEvent['subjectCategory'][] = ['CHI', 'ENG', 'MATH', 'CSD', 'ELECTIVE'];
+
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * Manual timetable entries are intentionally strict: an admin typing a bad
+ * date or time must not silently corrupt every candidate's countdown.
+ */
+function parseAdminEvents(input: unknown, year: number): SystemExamEvent[] {
+  if (!Array.isArray(input) || input.length === 0) throw new Error('JSON 必須是非空陣列。');
+  if (input.length > 500) throw new Error('單一年度最多 500 個考試事件。');
+
+  const seenIds = new Set<string>();
+  const seenSlots = new Set<string>();
+  const events = input.map((raw, index) => {
+    const row = index + 1;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error(`第 ${row} 行不是物件。`);
+    }
+    const item = raw as Record<string, unknown>;
+    const id = asText(item.id);
+    const date = asText(item.date);
+    const startTime = asText(item.startTime);
+    const endTime = asText(item.endTime);
+    const subject = asText(item.subject);
+    const title = asText(item.title);
+    const subjectCategory = asText(item.subjectCategory) as SystemExamEvent['subjectCategory'];
+    const paper = asText(item.paper);
+    if (!id) throw new Error(`第 ${row} 行缺少 id。`);
+    if (!isISODate(date)) throw new Error(`第 ${row} 行日期無效（YYYY-MM-DD）。`);
+    if (!ADMIN_TIME_PATTERN.test(startTime) || !ADMIN_TIME_PATTERN.test(endTime)) {
+      throw new Error(`第 ${row} 行時間無效，必須是 HH:MM（UTC+8）。`);
+    }
+    if (endTime <= startTime) throw new Error(`第 ${row} 行結束時間必須晚於開始時間。`);
+    if (!subject || !title) throw new Error(`第 ${row} 行需要 subject 及 title。`);
+    if (!ADMIN_CATEGORIES.includes(subjectCategory)) {
+      throw new Error(`第 ${row} 行 subjectCategory 必須是 CHI / ENG / MATH / CSD / ELECTIVE。`);
+    }
+    if (seenIds.has(id)) throw new Error(`第 ${row} 行 id 重複：${id}`);
+    const slot = `${date} ${startTime} ${subject}`;
+    if (seenSlots.has(slot)) throw new Error(`第 ${row} 行與其他行重複（${date} ${startTime} ${subject}）。`);
+    seenIds.add(id);
+    seenSlots.add(slot);
+    return {
+      id,
+      year,
+      date,
+      startTime,
+      endTime,
+      subject,
+      subjectCategory,
+      paper: paper || undefined,
+      title,
+      source: 'official' as const,
+    };
+  });
+
+  return events.sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+}
 
 export function SettingsView() {
   const {
@@ -143,16 +208,23 @@ export function SettingsView() {
   const uploadAdminJson = async () => {
     try {
       const parsed: unknown = JSON.parse(adminJson);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('JSON 必須是非空陣列。');
-      const events = parsed as SystemExamEvent[];
-      if (!events.every((event) => event && typeof event.id === 'string' && typeof event.date === 'string' && typeof event.title === 'string')) {
-        throw new Error('每個事件最少要有 id、date、title。');
-      }
-      await saveOfficialData(events.map((event) => ({ ...event, year: adminYear, source: 'official' })), adminYear);
+      const events = parseAdminEvents(parsed, adminYear);
+      await saveOfficialData(events, adminYear);
       setAdminJson('');
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), 'error');
     }
+  };
+
+  const loadAdminJson = () => {
+    setAdminYear(data.settings.dseYear);
+    const rows = systemTimetable.events.map((event) => ({
+      ...event,
+      year: data.settings.dseYear,
+      source: 'official' as const,
+    }));
+    setAdminJson(JSON.stringify(rows, null, 2));
+    showToast(`已載入 ${data.settings.dseYear} 目前時間表；修改後可按「上傳 JSON」。`, 'info');
   };
 
   return (
@@ -563,26 +635,58 @@ export function SettingsView() {
                     官方時間表更新
                   </div>
                 </div>
-                <span className="chip chip-gold">管理員</span>
+                <span className="chip chip-gold">管理員 · UTC+8</span>
               </div>
               <div className="setting-row col">
-                <div className="setting-copy">只有 `admins/{'{uid}'}` 存在的帳號可以寫入 `systemExams`。普通用戶只能讀取及隱藏。</div>
+                <div className="setting-copy">
+                  只有 `admins/{'{uid}'}` 存在的帳號可以寫入 `systemExams`；普通用戶只讀。所有 date 及 time 均以{' '}
+                  <span className="mono">Asia/Hong_Kong（UTC+8）</span> 儲存，並以{' '}
+                  <a href={RECURSO_COUNTDOWN_URL} target="_blank" rel="noreferrer">recurso DSE Countdown</a>{' '}
+                  作人手對照基準。
+                </div>
                 <div className="row" style={{ width: '100%', flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-sm btn-primary" onClick={() => void seedAdmin2025()} disabled={busy}>
                     寫入 2025 HKEAA 基底
                   </button>
+                  <button type="button" className="btn btn-sm" onClick={loadAdminJson} disabled={!systemTimetable.events.length}>
+                    載入目前時間表
+                  </button>
+                  <span className="tiny muted">
+                    目前：{systemTimetable.label} · {systemTimetable.events.length} 項 · {systemTimetable.timezone}
+                  </span>
                 </div>
+
+                <details className="admin-timetable-preview">
+                  <summary>查看目前載入的時間表（{systemTimetable.events.length} 項）</summary>
+                  <div className="admin-timetable-list">
+                    {systemTimetable.events.map((event) => (
+                      <div className="admin-timetable-row" key={event.id}>
+                        <span className="mono">{event.date} {event.startTime || '全日'}–{event.endTime || ''}</span>
+                        <span>{event.subject}{event.paper ? ` · ${event.paper}` : ''}</span>
+                        <span className="tiny muted">{event.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+
                 <label className="field" style={{ width: '100%' }}>
-                  <span className="label">進階：貼上 systemExams JSON（陣列）</span>
-                  <textarea className="textarea" value={adminJson} onChange={(event) => setAdminJson(event.target.value)} placeholder='[{"id":"...","date":"2027-04-01","title":"DSE 中國語文 Paper 1","subject":"中國語文","subjectCategory":"CHI","startTime":"08:30","endTime":"10:00"}]' />
+                  <span className="label">手動維護：systemExams JSON（陣列）</span>
+                  <textarea
+                    className="textarea"
+                    value={adminJson}
+                    onChange={(event) => setAdminJson(event.target.value)}
+                    placeholder='[{"id":"...","date":"2027-04-01","title":"DSE 中國語文 Paper 1","subject":"中國語文","subjectCategory":"CHI","startTime":"08:30","endTime":"10:00"}]'
+                    rows={10}
+                  />
                 </label>
-                <div className="row">
+                <div className="row" style={{ flexWrap: 'wrap' }}>
                   <select className="select" style={{ width: 120 }} value={adminYear} onChange={(event) => setAdminYear(Number(event.target.value))}>
                     {YEARS.map((year) => <option key={year} value={year}>{year}</option>)}
                   </select>
                   <button type="button" className="btn btn-sm" onClick={() => void uploadAdminJson()} disabled={!adminJson.trim()}>
                     上傳 JSON
                   </button>
+                  <span className="tiny muted">上傳前會驗證日期、HH:MM、結束時間、重複 id／時段及科目分類。</span>
                 </div>
               </div>
             </section>

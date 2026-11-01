@@ -74,8 +74,11 @@ export function Dashboard() {
   const nextExamSubject = activeExam?.subjectId
     ? data.subjects.find((subject) => subject.id === activeExam.subjectId)
     : undefined;
-  const upcoming = upcomingEvents(allEvents, today, 4);
+  const upcoming = upcomingEvents(allEvents, today, 50)
+    .filter((event) => Boolean(event.subjectId) && selectedSubjectSet.has(event.subjectId as string))
+    .slice(0, 4);
   const subjectCountdowns = data.subjects
+    .filter((subject) => selectedSubjectSet.has(subject.id))
     .map((subject) => {
       const next = allEvents
         .filter(
@@ -163,8 +166,8 @@ export function Dashboard() {
                       {EVENT_TYPE_LABEL[activeExam.type]}
                       {activeExam.paper ? ` · ${activeExam.paper}` : ''}
                       {activeExam.source === 'system'
-                        ? ` · ${systemTimetable.source === 'estimated' ? '預估 HKEAA 時間' : 'HKEAA 官方時間'}`
-                        : ''}
+                        ? ` · ${systemTimetable.source === 'estimated' ? '預估 HKEAA 時間' : 'HKEAA 官方時間'} · UTC+8`
+                        : ' · UTC+8'}
                       <br />
                       {clockOffsetMs !== 0
                         ? `時鐘已校準 ${formatOffset(clockOffsetMs)}；倒數每秒更新。`
@@ -228,7 +231,7 @@ export function Dashboard() {
                   </div>
                   <div className="tiny muted">
                     {dse
-                      ? `DSE 首科 · ${formatDate(dse.start)}${dseDays !== null ? ` · ${Math.max(0, dseDays)} 日` : ''}`
+                      ? `全體 DSE 首科（參考） · ${formatDate(dse.start)}${dseDays !== null ? ` · ${Math.max(0, dseDays)} 日` : ''}`
                       : '尚未設定 DSE 首科日期'}
                   </div>
                 </div>
@@ -435,10 +438,10 @@ export function Dashboard() {
                 <div className="eyebrow">Per-subject countdown</div>
                 <div className="card-title" style={{ marginTop: 5 }}>
                   <Icon name="clock" size={15} />
-                  各科倒數
+                  已選科目倒數
                 </div>
               </div>
-              <span className="tiny muted">{subjectCountdowns.length} / {data.subjects.length}</span>
+              <span className="tiny muted">{subjectCountdowns.length} / {selectedSubjectIds.length}</span>
             </div>
             {subjectCountdowns.length ? (
               <div className="subject-countdown-list">
@@ -464,7 +467,16 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="empty" style={{ minHeight: 110, padding: 18 }}>
-                <div className="empty-copy">為每個科目加入 DSE / Mock / 校內考試事件，這裡會自動顯示各科最近倒數。</div>
+                <div className="empty-copy">
+                  {selectedSubjectIds.length === 0
+                    ? '尚未選擇 DSE 科目。到設定勾選科目後，這裡會顯示已選科目的最近考試。'
+                    : '已選科目暫時沒有考試。到日曆加入 DSE / Mock / 校內考試，這裡會自動顯示最近倒數。'}
+                </div>
+                {selectedSubjectIds.length === 0 ? (
+                  <button type="button" className="btn btn-sm" onClick={() => setView('settings')} style={{ marginTop: 4 }}>
+                    選擇 DSE 科目
+                  </button>
+                ) : null}
               </div>
             )}
           </section>
@@ -475,7 +487,7 @@ export function Dashboard() {
                 <div className="eyebrow">Upcoming</div>
                 <div className="card-title" style={{ marginTop: 5 }}>
                   <Icon name="calendar" size={15} />
-                  考試與截止日
+                  已選科目考試
                 </div>
               </div>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setView('calendar')}>
@@ -512,7 +524,11 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="empty" style={{ minHeight: 130 }}>
-                <div className="empty-copy">加入 DSE、Mock、校內考試或 SBA deadline，這裡會自動排序。</div>
+                <div className="empty-copy">
+                  {selectedSubjectIds.length === 0
+                    ? '尚未選科；選科後只會顯示相關考試。'
+                    : '已選科目未有 DSE、Mock、校內考試或 SBA deadline。'}
+                </div>
               </div>
             )}
           </section>
