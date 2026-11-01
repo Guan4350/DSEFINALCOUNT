@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { TimerMode, TimerSession } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { hkDateISO, toHKDateTime } from '../lib/clock';
+import { formatHKClock, hkDateISO, toHKDateTime } from '../lib/clock';
 import { uid } from '../lib/id';
 import { primeBell, ringBell } from '../lib/bell';
 import { formatMinutes, formatTimer, modeLabel, paperPresets } from '../lib/timer';
@@ -15,9 +16,14 @@ interface ActiveTimer {
   paper: string;
   notes: string;
   plannedSeconds: number;
+  referenceSeconds: number;
   startedAtMs: number;
   runningSince: number | null;
   accumulatedMs: number;
+}
+
+function clockHM(ms: number): string {
+  return formatHKClock(ms).slice(0, 5);
 }
 
 export function TimerView() {
@@ -31,6 +37,7 @@ export function TimerView() {
   const [active, setActive] = useState<ActiveTimer | null>(null);
   const [now, setNow] = useState(Date.now());
   const [lastSession, setLastSession] = useState<TimerSession | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
   const finishingRef = useRef(false);
 
   const subject = data.subjects.find((item) => item.id === subjectId);
@@ -99,6 +106,7 @@ export function TimerView() {
     setActive(null);
     setLastSession(session);
     setNow(Date.now());
+    setFocusMode(false);
     finishingRef.current = false;
     if (auto) ringBell();
     showToast(auto ? '倒數完成，已自動記錄。' : '計時完成，已記錄。', 'success');
@@ -134,10 +142,12 @@ export function TimerView() {
       paper: selectedPreset?.paper || '自訂',
       notes,
       plannedSeconds: planned,
+      referenceSeconds: selectedPreset?.minutes ? selectedPreset.minutes * 60 : 3600,
       startedAtMs: startMs,
       runningSince: startMs,
       accumulatedMs: 0,
     });
+    setFocusMode(true);
   };
 
   const pause = () => {
@@ -164,8 +174,119 @@ export function TimerView() {
     if (!active) return;
     if (!window.confirm('放棄這次計時？今次不會寫入紀錄。')) return;
     setActive(null);
+    setFocusMode(false);
     finishingRef.current = false;
   };
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFocusMode(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [focusMode]);
+
+  const focusTimer = active;
+  const focusModeValue = focusTimer?.mode || mode;
+  const focusSubject = focusTimer?.subjectName || selectedPreset?.subjectName || subject?.name || '未選擇科目';
+  const focusPaper = focusTimer?.paper || selectedPreset?.paper || '自訂';
+  const focusReference = focusTimer?.referenceSeconds || (selectedPreset?.minutes ? selectedPreset.minutes * 60 : 3600);
+  const focusProgress = focusTimer
+    ? focusTimer.mode === 'countdown'
+      ? Math.min(1, Math.max(0, elapsedMs / Math.max(1, focusTimer.plannedSeconds * 1000)))
+      : Math.min(1, Math.max(0, elapsedMs / Math.max(1, focusReference * 1000)))
+    : 0;
+  const focusStart = focusTimer ? clockHM(focusTimer.startedAtMs) : '--:--';
+  const focusEnd = focusTimer && focusTimer.mode === 'countdown'
+    ? clockHM(focusTimer.startedAtMs + focusTimer.plannedSeconds * 1000)
+    : focusTimer
+      ? '自由結束'
+      : mode === 'countdown'
+        ? clockHM(Date.now() + plannedSeconds * 1000)
+        : '自由結束';
+  const focusMiddle = focusTimer
+    ? focusTimer.mode === 'countdown'
+      ? `剩餘 ${formatTimer(remainingSeconds)}`
+      : `已過 ${formatTimer(elapsedSeconds)}`
+    : '準備開始';
+
+  const fullscreen = focusMode ? createPortal(
+    <div className="timer-focus" role="dialog" aria-modal="true" aria-label="全屏計時器">
+      <div className="timer-focus-top">
+        <div>
+          <div className="timer-focus-eyebrow">
+            {focusModeValue === 'countdown' ? 'MOCK EXAM / COUNTDOWN' : 'STUDY / STOPWATCH'}
+          </div>
+          <div className="timer-focus-title">
+            {focusSubject}
+            <span>·</span>
+            {focusPaper}
+          </div>
+        </div>
+        <button type="button" className="timer-focus-exit" onClick={() => setFocusMode(false)} aria-label="退出全屏">
+          退出全屏
+        </button>
+      </div>
+
+      <div className="timer-focus-center">
+        <div className={`timer-focus-clock${focusModeValue === 'countdown' && focusTimer && remainingSeconds <= 60 ? ' warning' : ''}`}>
+          {formatTimer(displaySeconds)}
+        </div>
+        <div className="timer-focus-sub">
+          {focusTimer
+            ? focusTimer.mode === 'countdown'
+              ? `原定 ${formatMinutes(focusTimer.plannedSeconds)} · ${focusTimer.runningSince === null ? '已暫停' : '進行中'}`
+              : `已累積 ${formatMinutes(elapsedSeconds)} · ${focusTimer.runningSince === null ? '已暫停' : '進行中'}`
+            : mode === 'countdown'
+              ? `預備 ${formatMinutes(plannedSeconds)}`
+              : '按開始後累積溫書時間'}
+        </div>
+
+        <div className="timer-focus-progress">
+          <div className="timer-focus-progress-labels">
+            <span><em>開始</em>{focusStart}</span>
+            <strong>{focusMiddle}</strong>
+            <span><em>結束</em>{focusEnd}</span>
+          </div>
+          <div className="timer-focus-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(focusProgress * 100)}>
+            <div
+              className={`timer-focus-fill${focusModeValue === 'countdown' && focusTimer && remainingSeconds <= 60 ? ' danger' : ''}`}
+              style={{ width: `${Math.max(0, Math.min(100, focusProgress * 100))}%` }}
+            />
+          </div>
+          <div className="timer-focus-progress-foot">
+            <span>{focusTimer?.mode === 'stopwatch' ? `參考時長 ${formatMinutes(focusReference)}` : '倒數進度'}</span>
+            <span>{Math.round(focusProgress * 100)}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="timer-focus-actions">
+        {focusTimer ? (
+          <>
+            {focusTimer.runningSince !== null ? (
+              <button type="button" className="btn btn-primary" onClick={pause}>暫停</button>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={resume}>繼續</button>
+            )}
+            <button type="button" className="btn" onClick={() => finish(false)}>標記完成</button>
+            <button type="button" className="btn btn-ghost" onClick={abandon}>放棄</button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-primary timer-focus-start" onClick={start}>
+            開始{mode === 'countdown' ? '倒數' : '計時'}
+          </button>
+        )}
+      </div>
+    </div>,
+    document.body,
+  ) : null;
 
   return (
     <div className="stack" style={{ gap: 16 }}>
@@ -189,9 +310,14 @@ export function TimerView() {
               {active ? `${modeLabel(active.mode)}進行中` : '準備計時'}
             </div>
           </div>
-          <div className="metric-tabs" role="tablist" aria-label="計時模式">
-            <button type="button" role="tab" aria-selected={mode === 'countdown'} className={`metric-tab${mode === 'countdown' ? ' active' : ''}`} onClick={() => { if (!active) setMode('countdown'); }} disabled={Boolean(active)}>倒數</button>
-            <button type="button" role="tab" aria-selected={mode === 'stopwatch'} className={`metric-tab${mode === 'stopwatch' ? ' active' : ''}`} onClick={() => { if (!active) setMode('stopwatch'); }} disabled={Boolean(active)}>正計時</button>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <div className="metric-tabs" role="tablist" aria-label="計時模式">
+              <button type="button" role="tab" aria-selected={mode === 'countdown'} className={`metric-tab${mode === 'countdown' ? ' active' : ''}`} onClick={() => { if (!active) setMode('countdown'); }} disabled={Boolean(active)}>倒數</button>
+              <button type="button" role="tab" aria-selected={mode === 'stopwatch'} className={`metric-tab${mode === 'stopwatch' ? ' active' : ''}`} onClick={() => { if (!active) setMode('stopwatch'); }} disabled={Boolean(active)}>正計時</button>
+            </div>
+            <button type="button" className="btn btn-sm" onClick={() => setFocusMode(true)}>
+              全屏
+            </button>
           </div>
         </div>
 
@@ -308,6 +434,7 @@ export function TimerView() {
       </section>
 
       <TimerStats sessions={data.timerSessions} subjects={data.subjects} onDelete={deleteTimerSession} />
+      {fullscreen}
     </div>
   );
 }

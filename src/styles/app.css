@@ -3883,3 +3883,257 @@
     gap: 2px;
   }
 }
+
+/* Full-screen focus timer (recurso dse-clock style).
+   The overlay deliberately uses a paper-white / near-black surface and only
+   the existing gold accent, so the rest of the dashboard theme is untouched. */
+.timer-focus {
+  --focus-bg: #ffffff;
+  --focus-text: #1a1a1a;
+  --focus-muted: #6b6b6b;
+  --focus-line: rgba(26, 26, 26, 0.13);
+  --focus-soft: rgba(26, 26, 26, 0.035);
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: clamp(22px, 4vw, 56px);
+  overflow: auto;
+  background: var(--focus-bg);
+  color: var(--focus-text);
+}
+
+[data-theme='dark'] .timer-focus {
+  --focus-bg: #080808;
+  --focus-text: #f4f1ea;
+  --focus-muted: #9b9b9b;
+  --focus-line: rgba(255, 255, 255, 0.14);
+  --focus-soft: rgba(255, 255, 255, 0.045);
+}
+
+.timer-focus-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.timer-focus-eyebrow {
+  color: var(--focus-muted);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.timer-focus-title {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: clamp(23px, 3vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.timer-focus-title span {
+  margin: 0 10px;
+  color: var(--accent);
+}
+
+.timer-focus-exit {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid var(--focus-line);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--focus-muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    color 0.2s ease-out,
+    border-color 0.2s ease-out,
+    background-color 0.2s ease-out;
+}
+
+.timer-focus-exit:hover {
+  border-color: var(--accent);
+  background: var(--focus-soft);
+  color: var(--focus-text);
+}
+
+.timer-focus-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  text-align: center;
+}
+
+.timer-focus-clock {
+  font-family: var(--font-display);
+  font-size: clamp(92px, 19vw, 236px);
+  font-weight: 400;
+  line-height: 0.82;
+  letter-spacing: -0.075em;
+  font-variant-numeric: tabular-nums;
+  color: var(--focus-text);
+}
+
+.timer-focus-clock.warning {
+  color: #b74949;
+}
+
+.timer-focus-sub {
+  margin-top: clamp(16px, 2.6vh, 26px);
+  color: var(--focus-muted);
+  font-size: clamp(11px, 1.2vw, 14px);
+  letter-spacing: 0.04em;
+}
+
+.timer-focus-progress {
+  width: min(860px, 100%);
+  margin-top: clamp(28px, 5vh, 62px);
+}
+
+.timer-focus-progress-labels {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--focus-muted);
+  font-size: 11px;
+}
+
+.timer-focus-progress-labels span {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.timer-focus-progress-labels span:last-child {
+  text-align: right;
+}
+
+.timer-focus-progress-labels em {
+  font-style: normal;
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.timer-focus-progress-labels strong {
+  color: var(--focus-text);
+  font-family: var(--font-mono);
+  font-size: clamp(12px, 1.3vw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.timer-focus-track {
+  height: 6px;
+  margin: 12px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--focus-line);
+}
+
+.timer-focus-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f2c046, #c28d1c);
+  transition: width 0.25s linear;
+}
+
+.timer-focus-fill.danger {
+  background: linear-gradient(90deg, #c25a5a, #8f2b2b);
+}
+
+.timer-focus-progress-foot {
+  display: flex;
+  justify-content: space-between;
+  color: var(--focus-muted);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timer-focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: clamp(18px, 3vh, 34px);
+}
+
+.timer-focus .btn {
+  min-width: 118px;
+  height: 44px;
+  border-color: var(--focus-line);
+  background: transparent;
+  color: var(--focus-text);
+}
+
+.timer-focus .btn:hover {
+  border-color: var(--accent);
+  background: var(--focus-soft);
+}
+
+.timer-focus .btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.timer-focus .btn-primary:hover {
+  background: #e0b13d;
+  border-color: #e0b13d;
+}
+
+.timer-focus .btn-ghost {
+  color: var(--focus-muted);
+}
+
+.timer-focus-start {
+  min-width: 200px !important;
+}
+
+@media (max-width: 700px) {
+  .timer-focus {
+    padding: 20px 18px;
+  }
+
+  .timer-focus-clock {
+    font-size: clamp(62px, 18vw, 100px);
+  }
+
+  .timer-focus-progress-labels {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timer-focus-progress-labels span,
+  .timer-focus-progress-labels span:last-child {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .timer-focus .btn {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-focus-exit,
+  .timer-focus-fill,
+  .timer-focus .btn {
+    transition: none;
+  }
+}

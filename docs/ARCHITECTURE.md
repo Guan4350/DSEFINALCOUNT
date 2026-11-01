@@ -147,7 +147,7 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 ### Focus timer and study statistics
 
-`TimerView` keeps a single active timer in component state:
+`TimerView` keeps a single active timer in component state. Starting it opens a portal-based full-screen focus stage (subject/paper header, oversized HH:MM:SS clock, start/remaining/end progress bar, bottom controls). The overlay uses paper-white in light mode and near-black in dark mode, with the existing gold accent; it is not a separate route and can be exited without losing the running timer.
 
 - **Countdown**: planned seconds from a paper preset or a custom 1–600 minute input; elapsed time is derived from `Date.now()` timestamps, not decremented by the interval, so pausing/resuming and background-tab throttling stay accurate. At zero it rings a Web Audio bell, marks itself complete and saves.
 - **Stopwatch**: counts elapsed milliseconds until the user presses **標記完成**.
