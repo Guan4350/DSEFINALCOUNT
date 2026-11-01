@@ -70,6 +70,8 @@ Firestore location must be **asia-east2 (Hong Kong)**. Choose it when creating t
 
 Never put a service-account JSON, Apple app password, OAuth client secret or any other secret in a `VITE_*` variable. Mode B does not need any of them.
 
+After updating from an earlier build, republish [firestore.rules](firestore.rules): the settings document now includes `clockOffsetMs` and `selectedSubjectIds`. Without the republish, Mode B rejects settings writes with `permission-denied`.
+
 ## GitHub Pages deployment
 
 The workflow at [.github/workflows/deploy.yml](.github/workflows/deploy.yml) runs typecheck + build and publishes `dist` with GitHub Pages.
