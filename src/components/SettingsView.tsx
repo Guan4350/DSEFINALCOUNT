@@ -319,7 +319,7 @@ export function SettingsView() {
             ) : (
               <div className="setting-row col">
                 <div className="setting-copy">
-                  任務、自訂倒數、打卡、反思與熱力圖設定會同步。圖片仍然只存此裝置 localStorage，不會上傳 Firebase Storage。
+                  任務、自訂倒數、打卡、反思、計時紀錄與熱力圖設定會同步。圖片仍然只存此裝置 localStorage，不會上傳 Firebase Storage。
                 </div>
                 <div className="row" style={{ width: '100%', flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-sm" onClick={() => void runImport()} disabled={busy || !cloudReady}>
@@ -330,7 +330,7 @@ export function SettingsView() {
                   </span>
                 </div>
                 <div className="help">
-                  「上傳本機資料」會把本機任務、事件、反思與可驗證的打卡寫入 Firestore；已存在的同一 ID 會覆蓋，不會重複建立。
+                  「上傳本機資料」會把本機任務、事件、反思、計時紀錄與可驗證的打卡寫入 Firestore；已存在的同一 ID 會覆蓋，不會重複建立。
                 </div>
               </div>
             )}

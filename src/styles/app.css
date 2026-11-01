@@ -3591,3 +3591,295 @@
 .theme-toggle:active {
   transform: scale(0.97);
 }
+
+/* --------------------------------------------------------------------------
+   Focus timer + study-time statistics
+   -------------------------------------------------------------------------- */
+.timer-card {
+  overflow: hidden;
+}
+
+.timer-card-head {
+  align-items: flex-start;
+}
+
+.timer-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(290px, 0.72fr);
+  border-top: 1px solid var(--line);
+}
+
+.timer-display-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 330px;
+  padding: 28px 24px;
+  border-right: 1px solid var(--line);
+  background:
+    radial-gradient(120% 120% at 50% 0%, var(--hero-tint), transparent 68%),
+    var(--surface);
+  text-align: center;
+}
+
+.timer-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.timer-clock {
+  margin: 18px 0 10px;
+  font-family: var(--font-display);
+  font-size: clamp(58px, 8vw, 104px);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: linear-gradient(180deg, #f6d576 0%, #f2c046 38%, #c28d1c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.timer-clock.warning {
+  background: none;
+  -webkit-text-fill-color: var(--exam-text);
+  color: var(--exam-text);
+}
+
+.timer-under {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+
+.timer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.timer-start {
+  min-width: 148px;
+}
+
+.timer-note {
+  max-width: 360px;
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+.timer-setup-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px 22px;
+}
+
+.timer-official {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent-hairline);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.timer-result {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--accent-hairline);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+}
+
+.timer-result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.timer-result-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.timer-result-body {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.65;
+}
+
+.timer-stats {
+  margin-top: 2px;
+}
+
+.timer-stats-head {
+  align-items: flex-end;
+}
+
+.timer-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.timer-pie-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.timer-pie {
+  flex: 0 0 auto;
+  width: 150px;
+  height: 150px;
+}
+
+.timer-pie-value {
+  fill: var(--text);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.timer-pie-label {
+  fill: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.timer-legend {
+  display: grid;
+  flex: 1 1 150px;
+  gap: 7px;
+}
+
+.timer-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+}
+
+.timer-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.timer-legend-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.timer-trend {
+  height: 200px;
+}
+
+.timer-recent-list {
+  display: grid;
+}
+
+.timer-recent-row {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.timer-recent-row:last-child {
+  border-bottom: 0;
+}
+
+.timer-mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.timer-mode-dot.countdown {
+  background: var(--accent);
+}
+
+.timer-mode-dot.stopwatch {
+  background: var(--primary-hover);
+}
+
+.timer-recent-title {
+  display: block;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-recent-meta {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .timer-body,
+  .timer-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timer-display-panel {
+    min-height: 280px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 640px) {
+  .timer-display-panel {
+    padding: 24px 18px;
+  }
+
+  .timer-clock {
+    font-size: 58px;
+  }
+
+  .timer-setup-panel {
+    padding: 18px;
+  }
+
+  .admin-timetable-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

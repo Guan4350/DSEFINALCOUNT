@@ -26,6 +26,7 @@ import type {
   Settings,
   Stats,
   Task,
+  TimerSession,
 } from '../types';
 import { addDays, todayISO } from './date';
 import { db, firebaseConfigured } from './firebase';
@@ -37,6 +38,7 @@ export interface CloudSnapshot {
   events: CalendarEvent[];
   checkins: Record<string, Checkin>;
   reflections: Record<string, Reflection>;
+  timerSessions: TimerSession[];
   stats: Stats;
   settings?: Settings;
 }
@@ -116,6 +118,40 @@ export function eventFromData(id: string, data: DocumentData): CalendarEvent {
   };
 }
 
+export function timerSessionFromData(id: string, data: DocumentData): TimerSession {
+  return {
+    id,
+    date: asString(data.date, todayISO()),
+    subjectId: asString(data.subjectId),
+    subjectName: asString(data.subjectName, '未命名科目'),
+    paper: asString(data.paper, 'Paper'),
+    mode: data.mode === 'stopwatch' ? 'stopwatch' : 'countdown',
+    startedAt: asString(data.startedAt),
+    endedAt: asString(data.endedAt),
+    durationSeconds: Math.max(0, Math.round(asNumber(data.durationSeconds, 0))),
+    plannedSeconds: Math.max(0, Math.round(asNumber(data.plannedSeconds, 0))),
+    notes: asString(data.notes) || undefined,
+    completed: asBool(data.completed, true),
+  };
+}
+
+function timerSessionToData(session: TimerSession): DocumentData {
+  return {
+    date: session.date,
+    subjectId: session.subjectId,
+    subjectName: session.subjectName,
+    paper: session.paper,
+    mode: session.mode,
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    durationSeconds: Math.round(session.durationSeconds),
+    plannedSeconds: Math.round(session.plannedSeconds),
+    notes: session.notes || '',
+    completed: session.completed,
+    updatedAt: serverTimestamp(),
+  };
+}
+
 function taskToData(task: Task): DocumentData {
   return {
     title: task.title,
@@ -191,21 +227,24 @@ export async function fetchCloudSnapshot(uid: string, profile: Profile): Promise
     limit(400),
   );
   const reflectionsQuery = query(collection(db, 'users', uid, 'reflections'), orderBy('date', 'desc'), limit(120));
-  const [taskSnap, eventSnap, checkinSnap, reflectionSnap, statsSnap, settingsSnap] = await Promise.all([
+  const timerQuery = query(collection(db, 'users', uid, 'timerSessions'), orderBy('startedAt', 'desc'), limit(500));
+  const [taskSnap, eventSnap, checkinSnap, reflectionSnap, timerSnap, statsSnap, settingsSnap] = await Promise.all([
     getDocs(tasksQuery),
     getDocs(eventsQuery),
     getDocs(checkinsQuery),
     getDocs(reflectionsQuery),
+    getDocs(timerQuery),
     getDoc(doc(db, 'users', uid, 'meta', 'stats')),
     getDoc(doc(db, 'users', uid, 'meta', 'settings')),
   ]);
   recordUsage(
-    1 + taskSnap.size + eventSnap.size + checkinSnap.size + reflectionSnap.size + 2,
+    1 + taskSnap.size + eventSnap.size + checkinSnap.size + reflectionSnap.size + timerSnap.size + 2,
     0,
   );
 
   const tasks = taskSnap.docs.map((item) => taskFromData(item.id, item.data()));
   const events = eventSnap.docs.map((item) => eventFromData(item.id, item.data()));
+  const timerSessions = timerSnap.docs.map((item) => timerSessionFromData(item.id, item.data()));
   const checkins: Record<string, Checkin> = {};
   const orderedCheckins = checkinSnap.docs.slice().sort((a, b) => String(b.data().date || b.id).localeCompare(String(a.data().date || a.id)));
   for (const item of orderedCheckins) {
@@ -236,6 +275,7 @@ export async function fetchCloudSnapshot(uid: string, profile: Profile): Promise
     events,
     checkins,
     reflections,
+    timerSessions,
     settings: settingsData ? (settingsData as Settings) : undefined,
     stats: {
       currentStreak: asNumber(statsData?.currentStreak, 0),
@@ -255,6 +295,18 @@ export async function saveTask(uid: string, task: Task): Promise<void> {
 export async function removeTask(uid: string, taskId: string): Promise<void> {
   if (!db) throw new Error('Firestore 尚未設定。');
   await deleteDoc(doc(db, 'users', uid, 'tasks', taskId));
+  recordUsage(0, 1);
+}
+
+export async function saveTimerSession(uid: string, session: TimerSession): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  await setDoc(doc(db, 'users', uid, 'timerSessions', session.id), timerSessionToData(session));
+  recordUsage(0, 1);
+}
+
+export async function removeTimerSession(uid: string, sessionId: string): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  await deleteDoc(doc(db, 'users', uid, 'timerSessions', sessionId));
   recordUsage(0, 1);
 }
 
@@ -311,6 +363,10 @@ export async function migrateLocalData(uid: string, data: AppData): Promise<void
     ...Object.values(data.reflections).map((reflection) => ({
       path: `users/${uid}/reflections/${reflection.date}`,
       value: { date: reflection.date, text: reflection.text, updatedAt: serverTimestamp() },
+    })),
+    ...data.timerSessions.map((session) => ({
+      path: `users/${uid}/timerSessions/${session.id}`,
+      value: timerSessionToData(session),
     })),
   ];
   for (let index = 0; index < writes.length; index += 450) {

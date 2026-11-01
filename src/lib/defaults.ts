@@ -34,6 +34,7 @@ export function createDefaultData(): AppData {
     tasks: [],
     checkins: {},
     reflections: {},
+    timerSessions: [],
     images: [],
     lastRollover: '',
   };

@@ -67,6 +67,26 @@ export interface Reflection {
   updatedAt: string;
 }
 
+export type TimerMode = 'countdown' | 'stopwatch';
+
+export interface TimerSession {
+  id: string;
+  /** Hong Kong calendar date of the start. */
+  date: string;
+  subjectId: string;
+  subjectName: string;
+  paper: string;
+  mode: TimerMode;
+  /** Local ISO date-time, no timezone suffix. */
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  /** Planned countdown length; 0 for a stopwatch. */
+  plannedSeconds: number;
+  notes?: string;
+  completed: boolean;
+}
+
 export interface ImageNote {
   id: string;
   date: string;
@@ -107,6 +127,7 @@ export interface AppData {
   tasks: Task[];
   checkins: Record<string, Checkin>;
   reflections: Record<string, Reflection>;
+  timerSessions: TimerSession[];
   images: ImageNote[];
   lastRollover: string;
 }

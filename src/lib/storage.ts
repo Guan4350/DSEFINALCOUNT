@@ -1,4 +1,4 @@
-import type { AppData, CalendarEvent, Checkin, ImageNote, Reflection, Subject, Task } from '../types';
+import type { AppData, CalendarEvent, Checkin, ImageNote, Reflection, Subject, Task, TimerSession } from '../types';
 import { createDefaultData, DEFAULT_SUBJECTS } from './defaults';
 
 export const STORAGE_KEY = 'dse-candidate:data:v1';
@@ -72,6 +72,14 @@ export function normalizeData(input: unknown): AppData {
     tasks: asArray<Task>(input.tasks).filter((task) => isRecord(task) && typeof task.id === 'string' && typeof task.title === 'string'),
     checkins: normalizeRecord<Checkin>(input.checkins),
     reflections: normalizeRecord<Reflection>(input.reflections),
+    timerSessions: asArray<TimerSession>(input.timerSessions).filter(
+      (session) =>
+        isRecord(session) &&
+        typeof session.id === 'string' &&
+        typeof session.subjectId === 'string' &&
+        typeof session.startedAt === 'string' &&
+        typeof session.endedAt === 'string',
+    ),
     images: asArray<ImageNote>(input.images).filter(
       (image) => isRecord(image) && typeof image.id === 'string' && typeof image.dataUrl === 'string',
     ),

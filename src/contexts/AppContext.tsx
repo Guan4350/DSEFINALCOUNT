@@ -21,6 +21,7 @@ import type {
   Subject,
   SubjectCategory,
   Task,
+  TimerSession,
   UsageSnapshot,
 } from '../types';
 import { addDays, getSemester, todayISO } from '../lib/date';
@@ -32,6 +33,7 @@ import {
   migrateLocalData,
   removeEvent,
   removeTask,
+  removeTimerSession,
   saveEvent,
   saveEventsBulk,
   saveProfile,
@@ -39,6 +41,7 @@ import {
   saveSettings,
   saveTask,
   saveTasksBulk,
+  saveTimerSession as saveTimerSessionCloud,
 } from '../lib/cloud';
 import {
   fetchOfficialTimetable,
@@ -68,7 +71,7 @@ import {
 import type { SystemExamEvent } from '../data/dse2025';
 import { timetableForYear, toCalendarEvents, type OfficialTimetable } from '../lib/systemExams';
 
-export type View = 'dashboard' | 'calendar' | 'tasks' | 'gallery' | 'analytics' | 'leaderboard' | 'settings';
+export type View = 'dashboard' | 'calendar' | 'tasks' | 'timer' | 'gallery' | 'analytics' | 'leaderboard' | 'settings';
 
 export interface Toast {
   id: string;
@@ -108,6 +111,8 @@ interface AppContextValue {
   updateTask: (task: Task) => Promise<void>;
   toggleTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  saveTimerSession: (session: TimerSession) => Promise<void>;
+  deleteTimerSession: (sessionId: string) => Promise<void>;
   addEvent: (event: CalendarEvent) => Promise<void>;
   updateEvent: (event: CalendarEvent) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
@@ -224,13 +229,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const local = dataRef.current;
         const cloudTaskIds = new Set(snapshot.tasks.map((task) => task.id));
         const cloudEventIds = new Set(snapshot.events.map((event) => event.id));
+        const cloudTimerIds = new Set(snapshot.timerSessions.map((session) => session.id));
         const localOnlyTasks = local.tasks.filter((task) => !cloudTaskIds.has(task.id));
         const localOnlyEvents = local.events.filter((event) => !cloudEventIds.has(event.id));
+        const localOnlyTimerSessions = local.timerSessions.filter((session) => !cloudTimerIds.has(session.id));
         const localOnlyCheckins = Object.keys(local.checkins).filter((date) => !snapshot.checkins[date]);
         const localOnlyReflections = Object.keys(local.reflections).filter((date) => !snapshot.reflections[date]);
         const hasLocalOnly =
           localOnlyTasks.length > 0 ||
           localOnlyEvents.length > 0 ||
+          localOnlyTimerSessions.length > 0 ||
           localOnlyCheckins.length > 0 ||
           localOnlyReflections.length > 0;
 
@@ -249,6 +257,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : local.settings,
           tasks: [...snapshot.tasks, ...localOnlyTasks],
           events: [...snapshot.events, ...localOnlyEvents],
+          timerSessions: [...snapshot.timerSessions, ...localOnlyTimerSessions],
           checkins: { ...local.checkins, ...snapshot.checkins },
           reflections: { ...local.reflections, ...snapshot.reflections },
         };
@@ -366,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setNeedsImport(false);
       await loadCloud(user);
       showToast(
-        `已上傳任務、事件、反思${importedCheckins ? `及 ${importedCheckins} 日打卡` : ''}${skippedCheckins ? `；${skippedCheckins} 日打卡因缺少對應完成任務而略過` : ''}。`,
+        `已上傳任務、事件、反思、計時紀錄${importedCheckins ? `及 ${importedCheckins} 日打卡` : ''}${skippedCheckins ? `；${skippedCheckins} 日打卡因缺少對應完成任務而略過` : ''}。`,
         'success',
       );
     } catch (error) {
@@ -426,6 +435,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user && cloudReady) {
         try {
           await removeTask(user.uid, taskId);
+        } catch (error) {
+          showToast(`本機已刪除，雲端刪除失敗：${messageFor(error)}`, 'error');
+        }
+      }
+    },
+    [cloudReady, persist, showToast, user],
+  );
+
+  const saveTimerSession = useCallback(
+    async (session: TimerSession) => {
+      const current = dataRef.current;
+      const next: AppData = {
+        ...current,
+        timerSessions: [session, ...current.timerSessions.filter((item) => item.id !== session.id)],
+      };
+      if (!persist(next)) return;
+      if (user && cloudReady) {
+        try {
+          await saveTimerSessionCloud(user.uid, session);
+        } catch (error) {
+          showToast(`計時紀錄已存本機，雲端寫入失敗：${messageFor(error)}`, 'error');
+        }
+      }
+    },
+    [cloudReady, persist, showToast, user],
+  );
+
+  const deleteTimerSession = useCallback(
+    async (sessionId: string) => {
+      const current = dataRef.current;
+      if (!persist({
+        ...current,
+        timerSessions: current.timerSessions.filter((item) => item.id !== sessionId),
+      })) return;
+      if (user && cloudReady) {
+        try {
+          await removeTimerSession(user.uid, sessionId);
         } catch (error) {
           showToast(`本機已刪除，雲端刪除失敗：${messageFor(error)}`, 'error');
         }
@@ -819,6 +865,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateTask,
     toggleTask,
     deleteTask,
+    saveTimerSession,
+    deleteTimerSession,
     addEvent,
     updateEvent: addEvent,
     deleteEvent,

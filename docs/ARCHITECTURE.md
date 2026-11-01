@@ -34,6 +34,7 @@
   - cloud tasks/events win on identical IDs;
   - local-only tasks/events stay visible;
   - check-ins are merged by date (cloud wins);
+  - timer sessions are merged by id (cloud wins, local-only runs stay visible for one-click import);
   - reflections merge with cloud precedence;
   - settings come from `meta/settings` when present.
 - A one-click import is explicit. There is no silent auto-upload.
@@ -68,6 +69,10 @@ users/{uid}/meta/settings
 
 users/{uid}/reflections/{YYYY-MM-DD}
   date, text, updatedAt
+
+users/{uid}/timerSessions/{sessionId}
+  date, subjectId, subjectName, paper, mode, startedAt, endedAt,
+  durationSeconds, plannedSeconds, notes, completed, updatedAt
 
 leaderboard/{uid}
   uid, displayName, currentStreak, totalDays, visible,
@@ -139,6 +144,17 @@ The event editor validates:
 `settings.selectedSubjectIds` is a validated string array. The dashboard builds a Set from it and only offers exams whose `subjectId` is selected. The hero, the per-subject sidebar and the upcoming-exam list all apply that filter; the `DSE 首科` footer remains as a clearly-labelled global reference. If none are selected the dashboard shows a prompt; if several selected exams are close, a horizontally scrollable rail plus previous/next controls changes the active countdown.
 
 Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settings panel offers common DSE elective presets. `systemExams` maps a subject by exact name first, then by name containment, then to the generic elective subject.
+
+### Focus timer and study statistics
+
+`TimerView` keeps a single active timer in component state:
+
+- **Countdown**: planned seconds from a paper preset or a custom 1–600 minute input; elapsed time is derived from `Date.now()` timestamps, not decremented by the interval, so pausing/resuming and background-tab throttling stay accurate. At zero it rings a Web Audio bell, marks itself complete and saves.
+- **Stopwatch**: counts elapsed milliseconds until the user presses **標記完成**.
+- **Pause / resume** accumulates `accumulatedMs` and sets `runningSince` to null or a fresh timestamp. **Abandon** discards the run without writing anything.
+- Completed runs become `users/{uid}/timerSessions/{id}` with subject, paper, start/end, duration, mode, notes and `completed`. Mode A writes the same object to `localStorage`; Mode B writes locally first, then Firestore, so a network failure never loses the local record.
+- `src/lib/timer.ts` derives official paper durations from the same `DSE_2025_EVENTS` used by the calendar, so the timer and countdown cannot disagree.
+- `TimerStats` filters completed sessions to the last 7 or 30 days, renders a subject-share donut and a multi-subject daily-minutes line chart with inline SVG, and exports the filtered sessions as UTF-8 CSV. No chart dependency is added.
 
 
 ## 7. System DSE timetable

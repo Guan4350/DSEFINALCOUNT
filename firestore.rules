@@ -139,6 +139,26 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    function timerSessionShape() {
+      return request.resource.data.keys().hasOnly([
+        'date', 'subjectId', 'subjectName', 'paper', 'mode',
+        'startedAt', 'endedAt', 'durationSeconds', 'plannedSeconds',
+        'notes', 'completed', 'updatedAt'
+      ])
+        && isDate(request.resource.data.date)
+        && request.resource.data.subjectId is string && request.resource.data.subjectId.size() > 0 && request.resource.data.subjectId.size() <= 100
+        && request.resource.data.subjectName is string && request.resource.data.subjectName.size() > 0 && request.resource.data.subjectName.size() <= 100
+        && request.resource.data.paper is string && request.resource.data.paper.size() <= 120
+        && request.resource.data.mode in ['countdown', 'stopwatch']
+        && request.resource.data.startedAt is string && isEventStart(request.resource.data.startedAt)
+        && request.resource.data.endedAt is string && isEventStart(request.resource.data.endedAt)
+        && request.resource.data.durationSeconds is int && request.resource.data.durationSeconds >= 0 && request.resource.data.durationSeconds <= 86400
+        && request.resource.data.plannedSeconds is int && request.resource.data.plannedSeconds >= 0 && request.resource.data.plannedSeconds <= 86400
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
+        && request.resource.data.completed is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
     /*
      * Rate limit for the public board.
      *
@@ -274,6 +294,13 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 5000
           && request.resource.data.updatedAt == request.time;
+        allow delete: if isSelf(uid);
+      }
+
+      // Private study timer sessions: own uid only, full CRUD for corrections.
+      match /timerSessions/{sessionId} {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && timerSessionShape();
         allow delete: if isSelf(uid);
       }
 

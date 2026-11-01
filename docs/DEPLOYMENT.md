@@ -84,7 +84,7 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`. If you deployed an earlier build, **republish these rules** before changing the clock or subject selection in Mode B; otherwise Firestore rejects the settings write with `permission-denied`.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, and each user has a `timerSessions/{id}` subcollection. If you deployed an earlier build, **republish these rules** before changing the clock, subject selection or saving a timer; otherwise Firestore rejects the write with `permission-denied`.
 
 Manual smoke checks after publishing:
 
@@ -97,6 +97,9 @@ Manual smoke checks after publishing:
 7. Open the calendar, create an exam with a time and a repeat rule; confirm it appears in month/week and under `users/{uid}/events`.
 8. Open **設定 → DSE 選科**, untick one subject; confirm the dashboard countdown changes. In Firestore, `meta/settings` should contain `selectedSubjectIds` and `clockOffsetMs`.
 9. Calibrate the clock by ±1 second; confirm the countdown updates immediately and the setting survives a reload.
+10. Open **計時**, start a short countdown, pause/resume and mark it complete. Confirm `users/{uid}/timerSessions/{id}` contains the subject, paper, mode, timestamps, duration and notes.
+11. Switch to **正計時**, run a few seconds and mark complete; confirm a second private session and the weekly/monthly charts update.
+12. Export the CSV and confirm the downloaded file opens with Chinese headers intact.
 
 ### Indexes
 
@@ -106,6 +109,7 @@ Current queries use automatic single-field indexes:
 - events: `start` (order)
 - check-ins: `date >=`
 - reflections: `date` (order)
+- timerSessions: `startedAt` (order)
 - leaderboard: `visible == true` (read every 60 seconds while the page is visible)
 
 No composite index is required. If the console prompts for one, accept it and wait for the build.

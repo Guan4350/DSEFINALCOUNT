@@ -97,6 +97,11 @@ export function formatHKClock(nowMs: number): string {
   }).format(new Date(nowMs));
 }
 
+/** Local ISO-like Hong Kong date-time, stored without a timezone suffix. */
+export function toHKDateTime(nowMs: number): string {
+  return `${hkDateISO(new Date(nowMs))}T${formatHKClock(nowMs)}`;
+}
+
 /**
  * The user enters the current HKEAA/time.is clock time. Convert it to the
  * nearest absolute instant in Hong Kong and return a bounded device offset.

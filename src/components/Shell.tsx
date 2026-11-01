@@ -5,6 +5,7 @@ import { SPARK_READ_LIMIT, SPARK_WRITE_LIMIT, usagePercent } from '../lib/usage'
 import { Dashboard } from './Dashboard';
 import { CalendarView } from './CalendarView';
 import { TasksView } from './TasksView';
+import { TimerView } from './TimerView';
 import { GalleryView } from './GalleryView';
 import { AnalyticsView } from './AnalyticsView';
 import { LeaderboardView } from './LeaderboardView';
@@ -18,6 +19,7 @@ const NAV: { section: string; items: { view: View; label: string; icon: IconName
       { view: 'dashboard', label: '總覽', icon: 'grid' },
       { view: 'calendar', label: '日曆', icon: 'calendar' },
       { view: 'tasks', label: '任務', icon: 'check-square' },
+      { view: 'timer', label: '計時', icon: 'clock' },
     ],
   },
   {
@@ -38,6 +40,7 @@ const TITLES: Record<View, string> = {
   dashboard: '總覽',
   calendar: '日曆',
   tasks: '任務',
+  timer: '計時',
   gallery: '錯題相簿',
   analytics: '學習分析',
   leaderboard: '排行榜',
@@ -208,6 +211,7 @@ export function Shell() {
           {view === 'dashboard' ? <Dashboard /> : null}
           {view === 'calendar' ? <CalendarView /> : null}
           {view === 'tasks' ? <TasksView /> : null}
+          {view === 'timer' ? <TimerView /> : null}
           {view === 'gallery' ? <GalleryView /> : null}
           {view === 'analytics' ? <AnalyticsView /> : null}
           {view === 'leaderboard' ? <LeaderboardView /> : null}

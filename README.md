@@ -17,6 +17,7 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
 - **High-precision countdown** — the dashboard shows the nearest selected exam as **X days HH:MM:SS**, refreshed every second against an explicitly Hong Kong (UTC+8) timestamp. A settings panel compares the device clock with time.is / HKEAA and stores a bounded ±5-minute correction.
 - **DSE subject focus** — opt in to the subjects you actually sit (core subjects and individual electives); the hero countdown filters to those subjects only, with a horizontally scrollable switcher when several exams are close. Selection syncs to Firestore in Mode B and localStorage in Mode A.
+- **Per-paper focus timer + study statistics** — countdown mock exams with an end-of-time bell or use a stopwatch for study sessions. Official 2025 paper durations are preselected (custom durations supported), with pause / resume / abandon / complete. Completed sessions sync to a private `timerSessions` collection and feed weekly / monthly subject-share and trend charts plus CSV export.
 - **Layered DSE countdowns** — first paper, every subject's next paper, Mock, school exam and SBA.
 - **2025 HKEAA timetable base** — finalised written timetable transcribed from the [HKEAA circular](https://www.hkeaa.edu.hk/DocLibrary/Circulars/HKDSE/HKDSE_Finalised_Examination_Timetable_for_2025_Examination.pdf); users can hide system events but cannot edit or delete them. The default DSE year is the next exam year that has not passed (e.g. October 2026 defaults to 2027); later years shift the 2025 dates and are labelled **預估日期，一切以 HKEAA 正式公告為準**.
 - **Tasks** — subject label, due date, completion, notes, and idempotent next-day rollover.
@@ -86,7 +87,7 @@ The six `VITE_FIREBASE_*` values are Firebase web identifiers, not secrets; the 
 
 ## One-click local import
 
-On first sign-in, local tasks, events, reflections, settings and verifiable check-ins are **not** silently overwritten. The app merges local-only records into the view and offers **設定 → 跨裝置同步 → 上傳本機資料**.
+On first sign-in, local tasks, events, reflections, timer sessions, settings and verifiable check-ins are **not** silently overwritten. The app merges local-only records into the view and offers **設定 → 跨裝置同步 → 上傳本機資料**.
 
 - Tasks/events/reflections/settings use stable local IDs, so re-import is idempotent.
 - A local check-in is imported only if the local data contains a completed task with a matching `completedDate`; otherwise it is counted as skipped.
@@ -120,6 +121,10 @@ users/{uid}/meta/settings
 users/{uid}/reflections/{YYYY-MM-DD}
   date, text, updatedAt
 
+users/{uid}/timerSessions/{sessionId}
+  date, subjectId, subjectName, paper, mode, startedAt, endedAt,
+  durationSeconds, plannedSeconds, notes, completed, updatedAt
+
 leaderboard/{uid}
   uid, displayName, currentStreak, totalDays, visible,
   writes, windowStart, updatedAt   (writes/windowStart = one-hour rate budget)
@@ -149,7 +154,7 @@ This is a social nudge, not an exam-integrity system. A determined user can stil
 
 ```text
 tailwind.config.ts     Single source of truth for light/dark colour tokens
-src/components/        Views, calendar, editors, heatmap, leaderboard
+src/components/        Views, calendar, timer, editors, heatmap, leaderboard
 src/contexts/          Local-first state + Mode B hydration
 src/data/dse2025.ts    2025 HKEAA written timetable + year-shift logic
 src/lib/
@@ -157,6 +162,8 @@ src/lib/
   cloudModeB.ts        Firestore-only check-in transaction + leaderboard sync
   firebase.ts          Optional Firebase init; all-six-empty => Mode A
   systemExams.ts       Official/estimated timetable -> calendar events
+  timer.ts             Official paper durations + timer formatting
+  bell.ts              Web Audio end-of-countdown bell
   ics.ts               RFC5545 import/export
   images.ts            WebP compression + localStorage quota
   storage.ts           Schema normalization, backup/restore

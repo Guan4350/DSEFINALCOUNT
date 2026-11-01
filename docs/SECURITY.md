@@ -23,6 +23,7 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `users/{uid}/meta/stats` | own | own, validated stats shape |
 | `users/{uid}/meta/settings` | own | own, validated settings shape incl. `clockOffsetMs` and `selectedSubjectIds` |
 | `users/{uid}/reflections/{date}` | own | own, ≤5,000 chars |
+| `users/{uid}/timerSessions/{id}` | own | own, validated timer shape; delete allowed |
 | `leaderboard/{uid}` | signed-in and (own or `visible == true`) | own only, validated shape, 20 metered writes/hour |
 | `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
@@ -97,8 +98,8 @@ No Blaze, Cloud Functions, Firebase Storage, cron or realtime listeners are conf
 
 Rough behaviour:
 
-- Sign-in hydrate: profile, up to 400 tasks, 400 events, 400 check-ins, 120 reflections, stats, settings. This is the largest cost.
-- Normal day: a few task writes, one check-in transaction (2 writes) plus one leaderboard sync (1 write).
+- Sign-in hydrate: profile, up to 400 tasks, 400 events, 400 check-ins, 120 reflections, 500 timer sessions, stats, settings. This is the largest cost.
+- Normal day: a few task writes, one check-in transaction (2 writes), one leaderboard sync (1 write), and one timer-session write per completed timer.
 - Leaderboard poll: at most 100 public documents per 60 seconds, only while the page is visible; paused when hidden and stopped on unmount.
 - No periodic polling when the app is idle.
 
