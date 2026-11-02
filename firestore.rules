@@ -239,6 +239,29 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    function calendarSyncConfigShape() {
+      return request.resource.data.keys().hasOnly([
+        'googleConnected', 'googleCalendarId', 'lastSyncAt', 'lastError', 'icalUrls', 'updatedAt'
+      ])
+        && request.resource.data.googleConnected is bool
+        && request.resource.data.googleCalendarId is string
+        && request.resource.data.googleCalendarId.size() > 0
+        && request.resource.data.googleCalendarId.size() <= 128
+        && request.resource.data.lastSyncAt is string && request.resource.data.lastSyncAt.size() <= 40
+        && request.resource.data.lastError is string && request.resource.data.lastError.size() <= 500
+        && request.resource.data.icalUrls is list
+        && request.resource.data.icalUrls.size() <= 10
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function userPreferencesShape() {
+      return request.resource.data.keys().hasOnly(['themeMode', 'theme', 'texture', 'updatedAt'])
+        && request.resource.data.themeMode in ['system', 'octavarium', 'train']
+        && request.resource.data.theme in ['light', 'dark']
+        && request.resource.data.texture is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
     /*
      * Rate limit for the public board.
      *
@@ -438,6 +461,26 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create, update: if signedIn() && winnerSubmissionShape();
       allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // Module 1: synced Google/iCal events and the per-user sync config.
+    match /userCalendarEvents/{eventId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if signedIn()
+        && eventShape()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /calendarSyncConfig/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if isSelf(uid) && calendarSyncConfigShape();
+    }
+
+    // Global theme preference, synced across the user's devices.
+    match /userPreferences/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if isSelf(uid) && userPreferencesShape();
     }
 
     // System timetable: public read, admin write only.

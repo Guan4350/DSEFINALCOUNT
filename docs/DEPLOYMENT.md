@@ -29,7 +29,7 @@ Leave every `VITE_FIREBASE_*` value empty. Confirm:
 
 - sidebar says **Local only**
 - dashboard shows **本機模式**
-- **設定 → 主題** switches white-gold / deep navy
+- **設定 → 主題** switches 跟隨系統 / Octavarium / Train of Thought and light/dark
 - system DSE countdowns appear (estimated 2027 dates in the demo)
 - adding a task, creating an event and exporting `.ics` work
 
@@ -49,6 +49,19 @@ This proves the static app is healthy before Firebase is involved.
    - This cannot be changed later. If the project already has a Firestore database in another region, create a new Firebase project rather than trying to move it.
    - Start in production mode.
 6. No Firebase Storage step is required. Weekly-winner images are compressed to a Firestore-safe data URL and written to `winnerCardSubmissions`; the public card only receives approved data. This keeps the project on Spark without a paid Storage bucket.
+
+### Google Calendar API / OAuth
+
+The same Google Cloud project must have:
+
+1. **Google Calendar API** enabled.
+2. An OAuth consent screen configured; add yourself as a test user while the app is in testing.
+3. Authorized JavaScript origins:
+   - `http://localhost:5173`
+   - `https://your-name.github.io`
+4. The `https://www.googleapis.com/auth/calendar.events` scope is requested only by the **連接 Google Calendar** button. Normal Google login does not ask for Calendar.
+
+The access token is stored in `sessionStorage` for about 55 minutes. There is no refresh token, webhook or background sync; the user presses **重新授權** / **立即同步**.
 
 ### Authorized domains
 
@@ -85,7 +98,7 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner` and `winnerCardSubmissions` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer or opening the weekly card; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
 
 Manual smoke checks after publishing:
 
@@ -104,6 +117,10 @@ Manual smoke checks after publishing:
 13. Reload the page while a timer is running; confirm it restores from `timerState/current` without losing elapsed time.
 14. From two test accounts, make one the weekly top (visible leaderboard), upload a winner image and quote. Confirm the image stays pending; use an admin account's **管理後台** to approve it, then confirm it renders and the poster downloads.
 15. Email sign-in: create an account in Settings, verify it appears under Authentication → Users and that `users/{uid}` is created.
+16. Google Calendar: press **連接 Google Calendar**, accept the Calendar scope, then **立即同步**. Confirm Google events appear under `userCalendarEvents` and on FullCalendar.
+17. Create/edit/delete a website event with **同步到 Google Calendar** checked. Confirm the Google Calendar changes and the Firestore mirror. Delete an imported Google event and confirm it is removed from Google.
+18. Apple iCal: paste a public `.ics` URL, import, and confirm events appear with the iCal legend. Edit one; confirm no request is made to Apple.
+19. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
 
 ### Indexes
 

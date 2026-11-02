@@ -69,6 +69,9 @@ export function normalizeData(input: unknown): AppData {
     },
     subjects,
     events: asArray<CalendarEvent>(input.events).filter((event) => isRecord(event) && typeof event.id === 'string' && typeof event.start === 'string'),
+    syncedEvents: asArray<CalendarEvent>(input.syncedEvents).filter(
+      (event) => isRecord(event) && typeof event.id === 'string' && typeof event.start === 'string',
+    ),
     tasks: asArray<Task>(input.tasks).filter((task) => isRecord(task) && typeof task.id === 'string' && typeof task.title === 'string'),
     checkins: normalizeRecord<Checkin>(input.checkins),
     reflections: normalizeRecord<Reflection>(input.reflections),

@@ -5,7 +5,9 @@ import {
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
+  linkWithPopup,
   onAuthStateChanged,
+  reauthenticateWithPopup,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -69,6 +71,36 @@ export async function signInWithGoogle(): Promise<User> {
     }
     throw error;
   }
+}
+
+export interface GoogleCalendarAuth {
+  accessToken: string;
+  expiresAt: number;
+}
+
+/**
+ * Calendar scope is requested only here, not on every normal Google login.
+ * The access token is kept in sessionStorage by googleCalendar.ts; no refresh
+ * token is stored in Firestore.
+ */
+export async function connectGoogleCalendar(): Promise<GoogleCalendarAuth> {
+  if (!auth?.currentUser) throw new Error('請先登入再連接 Google Calendar。');
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');
+  provider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
+  const current = auth.currentUser;
+  const hasGoogleProvider = current.providerData.some((item) => item.providerId === 'google.com');
+  const result = hasGoogleProvider
+    ? await reauthenticateWithPopup(current, provider)
+    : await linkWithPopup(current, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  if (!credential?.accessToken) {
+    throw new Error('未能取得 Google Calendar 授權，請再試一次。');
+  }
+  return {
+    accessToken: credential.accessToken,
+    expiresAt: Date.now() + 55 * 60 * 1000,
+  };
 }
 
 export async function signOutOfGoogle(): Promise<void> {

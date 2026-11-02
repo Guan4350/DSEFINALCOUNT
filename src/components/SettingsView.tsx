@@ -103,6 +103,10 @@ export function SettingsView() {
     systemTimetable,
     theme,
     setTheme,
+    themeMode,
+    setThemeMode,
+    themeTexture,
+    setThemeTexture,
     signIn,
     signOut,
     updateProfile,
@@ -456,40 +460,84 @@ export function SettingsView() {
                   主題
                 </div>
               </div>
-              <span className="chip">{theme === 'light' ? '白金色' : '深海藍'}</span>
+              <span className="chip">
+                {themeMode === 'system' ? '跟隨系統' : themeMode === 'train' ? 'Train of Thought' : 'Octavarium'}
+                {' · '}
+                {theme === 'light' ? '淺色' : '深色'}
+              </span>
             </div>
             <div className="setting-row col">
               <div className="theme-choices" role="radiogroup" aria-label="主題">
                 <button
                   type="button"
-                  className={`theme-choice${theme === 'light' ? ' active' : ''}`}
-                  onClick={() => setTheme('light')}
+                  className={`theme-choice${themeMode === 'system' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('system')}
                   role="radio"
-                  aria-checked={theme === 'light'}
+                  aria-checked={themeMode === 'system'}
                 >
-                  <span className="theme-swatch light"><i /><i /><i /></span>
+                  <span className="theme-swatch system"><i /><i /><i /></span>
                   <span>
-                    <strong>白金淺色</strong>
-                    <small>預設 · 白 / 淺灰 / 金色</small>
+                    <strong>跟隨系統</strong>
+                    <small>Octavarium 色盤 · 跟隨 OS 深淺色</small>
                   </span>
                 </button>
                 <button
                   type="button"
-                  className={`theme-choice${theme === 'dark' ? ' active' : ''}`}
-                  onClick={() => setTheme('dark')}
+                  className={`theme-choice${themeMode === 'octavarium' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('octavarium')}
                   role="radio"
-                  aria-checked={theme === 'dark'}
+                  aria-checked={themeMode === 'octavarium'}
                 >
-                  <span className="theme-swatch dark"><i /><i /><i /></span>
+                  <span className="theme-swatch octavarium"><i /><i /><i /></span>
                   <span>
-                    <strong>深海藍</strong>
-                    <small>可選 · 原有 Dream Theater 色盤</small>
+                    <strong>Octavarium</strong>
+                    <small>天空藍 / 草地綠 / 銀灰 · 平和累積</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`theme-choice${themeMode === 'train' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('train')}
+                  role="radio"
+                  aria-checked={themeMode === 'train'}
+                >
+                  <span className="theme-swatch train"><i /><i /><i /></span>
+                  <span>
+                    <strong>Train of Thought</strong>
+                    <small>石牆灰 / 隧道森林 · 沉潛專注</small>
                   </span>
                 </button>
               </div>
-              <div className="help">只會切換顏色變數；版面、字體、元件結構不變。選擇會保存在此裝置。</div>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm${theme === 'light' ? ' btn-primary' : ''}`}
+                  onClick={() => setTheme('light')}
+                >
+                  淺色
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm${theme === 'dark' ? ' btn-primary' : ''}`}
+                  onClick={() => setTheme('dark')}
+                >
+                  深色
+                </button>
+                <label className="row" style={{ gap: 7, color: 'var(--muted)', fontSize: 11 }}>
+                  <input
+                    type="checkbox"
+                    checked={!themeTexture}
+                    onChange={(input) => setThemeTexture(!input.target.checked)}
+                  />
+                  關閉背景紋理
+                </label>
+              </div>
+              <div className="help">
+                主題選擇會同步到你的帳戶（userPreferences）；未登入時保存在此裝置。所有頁面、日曆、計時器、排行榜與彈窗會自動套用。
+              </div>
             </div>
           </section>
+
 
           <section className="card settings-section">
             <div className="card-head">

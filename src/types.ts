@@ -6,6 +6,26 @@ export type DataSource = 'local' | 'ics' | 'caldav' | 'google' | 'system';
 
 export type SemesterMode = 'auto' | 's1' | 's2' | 'mock' | 'dse' | 'holiday';
 
+export type ThemeMode = 'system' | 'octavarium' | 'train';
+
+export type Theme = 'light' | 'dark';
+
+export interface ThemePreference {
+  mode: ThemeMode;
+  /** Manual light/dark choice used by Octavarium/Train; System ignores it. */
+  appearance: Theme;
+  texture: boolean;
+}
+
+export interface CalendarSyncConfig {
+  googleConnected: boolean;
+  googleCalendarId: string;
+  lastSyncAt?: string;
+  lastError?: string;
+  icalUrls: string[];
+  updatedAt?: string;
+}
+
 export interface Subject {
   id: string;
   name: string;
@@ -124,6 +144,8 @@ export interface AppData {
   settings: Settings;
   subjects: Subject[];
   events: CalendarEvent[];
+  /** Google Calendar / iCal events mirrored in userCalendarEvents. */
+  syncedEvents: CalendarEvent[];
   tasks: Task[];
   checkins: Record<string, Checkin>;
   reflections: Record<string, Reflection>;

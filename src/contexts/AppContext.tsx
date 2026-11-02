@@ -31,8 +31,10 @@ import { createDefaultData, createDemoData } from '../lib/defaults';
 import {
   ensureProfile,
   fetchCloudSnapshot,
+  fetchUserPreferences,
   migrateLocalData,
   removeEvent,
+  removeSyncedEvent,
   removeTask,
   removeTimerSession,
   saveEvent,
@@ -40,9 +42,11 @@ import {
   saveProfile,
   saveReflection as saveReflectionCloud,
   saveSettings,
+  saveSyncedEvent,
   saveTask,
   saveTasksBulk,
   saveTimerSession as saveTimerSessionCloud,
+  saveUserPreferences,
 } from '../lib/cloud';
 import {
   fetchOfficialTimetable,
@@ -52,9 +56,20 @@ import {
   syncLeaderboardDoc,
 } from '../lib/cloudModeB';
 import { firebaseConfigured, observeAuth, signInWithGoogle, signOutOfGoogle } from '../lib/firebase';
-import { applyTheme, getStoredTheme, type Theme } from '../lib/theme';
+import {
+  applyThemePreference,
+  getStoredThemePreference,
+  getSystemAppearance,
+  normalizeThemePreference,
+  resolveTheme,
+  watchSystemAppearance,
+  type Theme,
+  type ThemeMode,
+  type ThemePreference,
+} from '../lib/theme';
 import { buildIcs, downloadIcs, parseIcs } from '../lib/ics';
 import { compressImage, createImageNote, localImageUsage } from '../lib/images';
+import { deleteGoogleCalendarEvent, pushGoogleCalendarEvent } from '../lib/googleCalendar';
 import { uid } from '../lib/id';
 import { rolloverTasks } from '../lib/rollover';
 import {
@@ -91,6 +106,10 @@ interface AppContextValue {
   setView: (view: View) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+  themeTexture: boolean;
+  setThemeTexture: (enabled: boolean) => void;
   toasts: Toast[];
   showToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
@@ -156,7 +175,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dataRef = useRef(data);
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [view, setView] = useState<View>('dashboard');
-  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme());
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => getStoredThemePreference());
+  const [systemTheme, setSystemTheme] = useState<Theme>(() => getSystemAppearance());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(firebaseConfigured);
@@ -168,15 +188,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [leaderboardMetric, setLeaderboardMetric] = useState<LeaderboardMetric>('currentStreak');
   const [usage, setUsage] = useState<UsageSnapshot>(() => getUsage());
 
+  const theme = resolveTheme(themePreference, systemTheme);
+
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyThemePreference(themePreference);
+  }, [systemTheme, themePreference]);
 
-  const setTheme = useCallback((next: Theme) => setThemeState(next), []);
+  useEffect(() => {
+    if (themePreference.mode !== 'system') return undefined;
+    setSystemTheme(getSystemAppearance());
+    return watchSystemAppearance(setSystemTheme);
+  }, [themePreference.mode]);
+
+  const commitTheme = useCallback(
+    (next: ThemePreference) => {
+      const normalized = normalizeThemePreference(next);
+      setThemePreference(normalized);
+      if (user && cloudReady) {
+        void saveUserPreferences(user.uid, normalized).catch(() => undefined);
+      }
+    },
+    [cloudReady, user],
+  );
+
+  const setTheme = useCallback(
+    (next: Theme) => {
+      commitTheme({
+        ...themePreference,
+        mode: themePreference.mode === 'system' ? 'octavarium' : themePreference.mode,
+        appearance: next,
+      });
+    },
+    [commitTheme, themePreference],
+  );
+
+  const setThemeMode = useCallback(
+    (mode: ThemeMode) => commitTheme({ ...themePreference, mode }),
+    [commitTheme, themePreference],
+  );
+
+  const setThemeTexture = useCallback(
+    (enabled: boolean) => commitTheme({ ...themePreference, texture: enabled }),
+    [commitTheme, themePreference],
+  );
 
   const showToast = useCallback((message: string, tone: Toast['tone'] = 'info') => {
     const id = uid('toast');
@@ -217,7 +275,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => toCalendarEvents(systemTimetable, data.subjects, data.settings.hiddenSystemExamIds),
     [data.settings.hiddenSystemExamIds, data.subjects, systemTimetable],
   );
-  const allEvents = useMemo(() => [...data.events, ...systemEvents], [data.events, systemEvents]);
+  const allEvents = useMemo(
+    () => [...data.events, ...data.syncedEvents, ...systemEvents],
+    [data.events, data.syncedEvents, systemEvents],
+  );
 
   const loadCloud = useCallback(
     async (authUser: User) => {
@@ -227,6 +288,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await ensureProfile(authUser, dataRef.current.profile);
         const snapshot = await fetchCloudSnapshot(authUser.uid, profile);
+        const cloudPreference = await fetchUserPreferences(authUser.uid).catch(() => null);
+        if (cloudPreference) {
+          setThemePreference(normalizeThemePreference(cloudPreference));
+        } else {
+          void saveUserPreferences(authUser.uid, getStoredThemePreference()).catch(() => undefined);
+        }
         const local = dataRef.current;
         const cloudTaskIds = new Set(snapshot.tasks.map((task) => task.id));
         const cloudEventIds = new Set(snapshot.events.map((event) => event.id));
@@ -258,6 +325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : local.settings,
           tasks: [...snapshot.tasks, ...localOnlyTasks],
           events: [...snapshot.events, ...localOnlyEvents],
+          syncedEvents: snapshot.syncedEvents,
           timerSessions: [...snapshot.timerSessions, ...localOnlyTimerSessions],
           checkins: { ...local.checkins, ...snapshot.checkins },
           reflections: { ...local.reflections, ...snapshot.reflections },
@@ -506,7 +574,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addEvent = useCallback(
     async (event: CalendarEvent) => {
-      const normalized = { ...event, updatedAt: new Date().toISOString() };
+      let normalized = { ...event, updatedAt: new Date().toISOString() };
+      const synced = normalized.source === 'google' || normalized.source === 'ics';
+      if (synced) {
+        if (!user || !cloudReady) throw new Error('外部日曆事件需要登入後才能同步。');
+        normalized = { ...normalized, uid: user.uid };
+        if (normalized.source === 'google') {
+          normalized = await pushGoogleCalendarEvent(normalized);
+        }
+        const current = dataRef.current;
+        const wasLocal = current.events.some((item) => item.id === normalized.id);
+        if (!persist({
+          ...current,
+          events: current.events.filter((item) => item.id !== normalized.id),
+          syncedEvents: [
+            ...current.syncedEvents.filter((item) => item.id !== normalized.id),
+            normalized,
+          ],
+        })) return;
+        try {
+          await saveSyncedEvent(user.uid, normalized);
+          if (wasLocal) await removeEvent(user.uid, normalized.id).catch(() => undefined);
+        } catch (error) {
+          showToast(`同步事件已存本機，雲端寫入失敗：${messageFor(error)}`, 'error');
+        }
+        return;
+      }
       const current = dataRef.current;
       if (!persist({ ...current, events: [...current.events.filter((item) => item.id !== normalized.id), normalized] })) return;
       if (user && cloudReady) {
@@ -523,6 +616,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteEvent = useCallback(
     async (eventId: string) => {
       const current = dataRef.current;
+      const synced = current.syncedEvents.find((event) => event.id === eventId);
+      if (synced) {
+        if (!user || !cloudReady) throw new Error('外部日曆事件需要登入後才能刪除。');
+        if (synced.source === 'google' && synced.externalId) {
+          await deleteGoogleCalendarEvent(synced.externalId);
+        }
+        if (!persist({ ...current, syncedEvents: current.syncedEvents.filter((event) => event.id !== eventId) })) return;
+        try {
+          await removeSyncedEvent(user.uid, eventId);
+        } catch (error) {
+          showToast(`本機已刪除，外部日曆刪除失敗：${messageFor(error)}`, 'error');
+        }
+        return;
+      }
       if (!persist({ ...current, events: current.events.filter((event) => event.id !== eventId) })) return;
       if (user && cloudReady) {
         try {
@@ -876,6 +983,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setView,
     theme,
     setTheme,
+    themeMode: themePreference.mode,
+    setThemeMode,
+    themeTexture: themePreference.texture,
+    setThemeTexture,
     toasts,
     showToast,
     dismissToast,

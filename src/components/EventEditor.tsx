@@ -10,6 +10,7 @@ interface EventEditorProps {
   event?: CalendarEvent;
   defaultDate?: string;
   defaultType?: EventType;
+  googleSyncAvailable?: boolean;
   onClose: () => void;
 }
 
@@ -39,8 +40,14 @@ function isSimpleRule(rrule: string): boolean {
   return /^FREQ=(DAILY|WEEKLY|MONTHLY)$/i.test(rrule);
 }
 
-export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'dse', onClose }: EventEditorProps) {
-  const { data, allEvents, addEvent, updateEvent, deleteEvent, showToast } = useApp();
+export function EventEditor({
+  event,
+  defaultDate = todayISO(),
+  defaultType = 'dse',
+  googleSyncAvailable = false,
+  onClose,
+}: EventEditorProps) {
+  const { data, allEvents, addEvent, updateEvent, deleteEvent, showToast, setView } = useApp();
   const initial = useMemo(() => event || null, [event]);
   const initialRule = initial?.rrule || '';
   const initialAllDay = initial?.allDay ?? false;
@@ -63,6 +70,9 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
   const [customRule, setCustomRule] = useState(Boolean(initialRule) && !isSimpleRule(initialRule));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [syncToGoogle, setSyncToGoogle] = useState(
+    initial?.source === 'google' || (!initial && googleSyncAvailable),
+  );
 
   const submit = async () => {
     if (!title.trim()) {
@@ -119,6 +129,14 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
 
     setSaving(true);
     setError('');
+    const source: CalendarEvent['source'] =
+      initial?.source === 'google'
+        ? 'google'
+        : initial?.source === 'ics'
+          ? 'ics'
+          : syncToGoogle && googleSyncAvailable
+            ? 'google'
+            : 'local';
     const next: CalendarEvent = {
       id: initial?.id || uid('evt'),
       uid: initial?.uid || stableUid('dse-event'),
@@ -132,7 +150,7 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
       description: description.trim().slice(0, 4000) || undefined,
       location: location.trim().slice(0, 200) || undefined,
       rrule,
-      source: 'local',
+      source,
       externalId: initial?.externalId,
       etag: initial?.etag,
       updatedAt: new Date().toISOString(),
@@ -152,8 +170,12 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
   const remove = async () => {
     if (!initial) return;
     if (!window.confirm(`刪除「${initial.title}」？`)) return;
-    await deleteEvent(initial.id);
-    onClose();
+    try {
+      await deleteEvent(initial.id);
+      onClose();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
   };
 
   return (
@@ -166,6 +188,20 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
           {initial ? (
             <button type="button" className="btn btn-danger btn-sm" onClick={remove} style={{ marginRight: 'auto' }}>
               刪除
+            </button>
+          ) : null}
+          {initial?.subjectId ? (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                const subject = data.subjects.find((item) => item.id === initial.subjectId);
+                setView('timer');
+                showToast(`已跳到計時器${subject ? `；科目：${subject.name}` : ''}。`, 'info');
+                onClose();
+              }}
+            >
+              跳到計時器
             </button>
           ) : null}
           <button type="button" className="btn" onClick={onClose}>
@@ -290,6 +326,21 @@ export function EventEditor({ event, defaultDate = todayISO(), defaultType = 'ds
             </div>
           ) : null}
         </div>
+
+        {googleSyncAvailable && initial?.source !== 'ics' ? (
+          <label className="row" style={{ gap: 8, color: 'var(--muted)', fontSize: 11 }}>
+            <input
+              type="checkbox"
+              checked={syncToGoogle || initial?.source === 'google'}
+              disabled={initial?.source === 'google'}
+              onChange={(input) => setSyncToGoogle(input.target.checked)}
+            />
+            同步到 Google Calendar
+            {initial?.source === 'google' ? '（已同步；修改會寫回 Google）' : ''}
+          </label>
+        ) : initial?.source === 'ics' ? (
+          <div className="help">iCal 為單向匯入；在網站修改或刪除不會寫回 Apple Calendar。</div>
+        ) : null}
 
         <div className="form-grid two">
           <label className="field">

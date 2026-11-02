@@ -19,6 +19,7 @@ import {
 import type {
   AppData,
   CalendarEvent,
+  CalendarSyncConfig,
   Checkin,
   LeaderboardEntry,
   Profile,
@@ -26,6 +27,7 @@ import type {
   Settings,
   Stats,
   Task,
+  ThemePreference,
   TimerSession,
 } from '../types';
 import { addDays, todayISO } from './date';
@@ -37,6 +39,7 @@ export interface CloudSnapshot {
   profile: Profile;
   tasks: Task[];
   events: CalendarEvent[];
+  syncedEvents: CalendarEvent[];
   checkins: Record<string, Checkin>;
   reflections: Record<string, Reflection>;
   timerSessions: TimerSession[];
@@ -229,24 +232,35 @@ export async function fetchCloudSnapshot(uid: string, profile: Profile): Promise
   );
   const reflectionsQuery = query(collection(db, 'users', uid, 'reflections'), orderBy('date', 'desc'), limit(120));
   const timerQuery = query(collection(db, 'users', uid, 'timerSessions'), orderBy('startedAt', 'desc'), limit(500));
-  const [taskSnap, eventSnap, checkinSnap, reflectionSnap, timerSnap, statsSnap, settingsSnap] = await Promise.all([
+  const syncedQuery = query(collection(db, 'userCalendarEvents'), where('uid', '==', uid), limit(1000));
+  const [taskSnap, eventSnap, syncedSnap, checkinSnap, reflectionSnap, timerSnap, statsSnap, settingsSnap] = await Promise.all([
     getDocs(tasksQuery),
     getDocs(eventsQuery),
+    // New module-1 collection is additive; an unpublished rule must not block
+    // the existing dashboard.
+    getDocs(syncedQuery).catch(() => null),
     getDocs(checkinsQuery),
     getDocs(reflectionsQuery),
-    // Timer history is additive. A missing/old rule for this new collection
-    // must not block profile/tasks/events from loading.
     getDocs(timerQuery).catch(() => null),
     getDoc(doc(db, 'users', uid, 'meta', 'stats')),
     getDoc(doc(db, 'users', uid, 'meta', 'settings')),
   ]);
   recordUsage(
-    1 + taskSnap.size + eventSnap.size + checkinSnap.size + reflectionSnap.size + (timerSnap?.size ?? 0) + 2,
+    1 + taskSnap.size + eventSnap.size + (syncedSnap?.size ?? 0) + checkinSnap.size + reflectionSnap.size + (timerSnap?.size ?? 0) + 2,
     0,
   );
 
   const tasks = taskSnap.docs.map((item) => taskFromData(item.id, item.data()));
   const events = eventSnap.docs.map((item) => eventFromData(item.id, item.data()));
+  const syncedEvents = (syncedSnap?.docs ?? [])
+    .map((item) => {
+      const event = eventFromData(item.id, item.data());
+      return {
+        ...event,
+        id: item.id.startsWith(`${uid}__`) ? item.id.slice(uid.length + 2) : event.id,
+      };
+    })
+    .sort((a, b) => a.start.localeCompare(b.start));
   const timerSessions = (timerSnap?.docs ?? []).map((item) => timerSessionFromData(item.id, item.data()));
   const checkins: Record<string, Checkin> = {};
   const orderedCheckins = checkinSnap.docs.slice().sort((a, b) => String(b.data().date || b.id).localeCompare(String(a.data().date || a.id)));
@@ -276,6 +290,7 @@ export async function fetchCloudSnapshot(uid: string, profile: Profile): Promise
     profile,
     tasks,
     events,
+    syncedEvents,
     checkins,
     reflections,
     timerSessions,
@@ -401,6 +416,75 @@ export async function saveEvent(uid: string, event: CalendarEvent): Promise<void
 export async function removeEvent(uid: string, eventId: string): Promise<void> {
   if (!db) throw new Error('Firestore 尚未設定。');
   await deleteDoc(doc(db, 'users', uid, 'events', eventId));
+  recordUsage(0, 1);
+}
+
+export async function saveSyncedEvent(uid: string, event: CalendarEvent): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  if (!uid || event.uid !== uid) throw new Error('同步事件不屬於目前用戶。');
+  await setDoc(doc(db, 'userCalendarEvents', `${uid}__${event.id}`), eventToData(event));
+  recordUsage(0, 1);
+}
+
+export async function removeSyncedEvent(uid: string, eventId: string): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  if (!uid) throw new Error('請先登入。');
+  await deleteDoc(doc(db, 'userCalendarEvents', `${uid}__${eventId}`));
+  recordUsage(0, 1);
+}
+
+export async function fetchCalendarSyncConfig(uid: string): Promise<CalendarSyncConfig | null> {
+  if (!db) return null;
+  const snapshot = await getDoc(doc(db, 'calendarSyncConfig', uid));
+  recordUsage(1, 0);
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return {
+    googleConnected: data.googleConnected === true,
+    googleCalendarId: asString(data.googleCalendarId, 'primary') || 'primary',
+    lastSyncAt: asString(data.lastSyncAt) || undefined,
+    lastError: asString(data.lastError) || undefined,
+    icalUrls: Array.isArray(data.icalUrls)
+      ? data.icalUrls.filter((item): item is string => typeof item === 'string')
+      : [],
+    updatedAt: timestampToISO(data.updatedAt),
+  };
+}
+
+export async function saveCalendarSyncConfig(uid: string, config: CalendarSyncConfig): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  await setDoc(doc(db, 'calendarSyncConfig', uid), {
+    googleConnected: config.googleConnected,
+    googleCalendarId: config.googleCalendarId || 'primary',
+    lastSyncAt: config.lastSyncAt || '',
+    lastError: config.lastError || '',
+    icalUrls: config.icalUrls.slice(0, 10),
+    updatedAt: serverTimestamp(),
+  });
+  recordUsage(0, 1);
+}
+
+export async function fetchUserPreferences(uid: string): Promise<ThemePreference | null> {
+  if (!db) return null;
+  const snapshot = await getDoc(doc(db, 'userPreferences', uid));
+  recordUsage(1, 0);
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  return {
+    mode: data.themeMode === 'system' || data.themeMode === 'train' ? data.themeMode : 'octavarium',
+    appearance: data.theme === 'dark' ? 'dark' : 'light',
+    texture: data.texture !== false,
+  };
+}
+
+export async function saveUserPreferences(uid: string, preference: ThemePreference): Promise<void> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  await setDoc(doc(db, 'userPreferences', uid), {
+    themeMode: preference.mode,
+    theme: preference.appearance,
+    texture: preference.texture,
+    updatedAt: serverTimestamp(),
+  });
   recordUsage(0, 1);
 }
 

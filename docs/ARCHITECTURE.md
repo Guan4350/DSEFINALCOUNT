@@ -90,6 +90,17 @@ leaderboardWinner/{weekKey}__{uid}
 winnerCardSubmissions/{weekKey}__{uid}
   weekKey, uid, imageData(pending/rejected), updatedAt
 
+userCalendarEvents/{uid}__{eventId}
+  uid, title, start, end, allDay, type, subjectId, paper,
+  description, location, rrule, source(google|ics|local),
+  externalId, etag, updatedAt, deleted
+
+calendarSyncConfig/{uid}
+  googleConnected, googleCalendarId, lastSyncAt, lastError, icalUrls[], updatedAt
+
+userPreferences/{uid}
+  themeMode(system|octavarium|train), theme(light|dark), texture, updatedAt
+
 systemExams/{year}
   year, source, label, events[], timezone, referenceUrl, updatedAt
   (public read; admin write only)
@@ -175,9 +186,15 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 - `leaderboardWinner/{weekKey}__{uid}` stores each candidate card. The current top user can edit their own quote/image; an old top card remains in the collection and is shown in the history wall when the top uid changes.
 - No Storage: the selected image is compressed in the browser to a ≤700,000-character WebP data URL and saved to the private `winnerCardSubmissions/{weekKey}__{uid}` document. The public card keeps `imageData` empty while pending/rejected; an admin approval copies the data into the public card with `imageStatus: approved`. Quotes are capped at 80 characters and filtered locally for sensitive words. `poster.ts` draws a PNG share card on canvas.
 
+## 7. Calendar sync
 
+- `src/lib/googleCalendar.ts` owns the Calendar API calls and the sessionStorage OAuth token. `connectGoogleCalendar()` in `firebase.ts` requests `calendar.events` only from the explicit connect button; normal Google login does not request Calendar.
+- `syncGoogleNow()` pulls `primary` events for the surrounding two years, upserts them into `userCalendarEvents` with deterministic IDs, removes Google events that disappeared inside that window, and pushes local Google events that have no `externalId` yet.
+- `src/lib/calendarSync.ts` imports a public `.ics` URL through the existing `ical.js` parser. Imported events use `source: 'ics'` and are never written back to Apple. CORS is the main browser limitation.
+- `AppContext` keeps local events in `data.events` and synced Google/iCal mirrors in `data.syncedEvents`; `allEvents` merges both for FullCalendar. Synced edits/deletes route to `userCalendarEvents` and (for Google) the API.
+- Manual sync only; the panel enforces a 60-second cooldown. `calendarSyncConfig` stores only connection metadata, never the access token.
 
-## 7. System DSE timetable
+## 8. System DSE timetable
 
 `src/data/dse2025.ts` contains the 2025 HKEAA finalised written timetable (subject, paper, date, start/end). `src/lib/systemExams.ts`:
 
@@ -189,19 +206,19 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 Users store only `hiddenSystemExamIds`; they never mutate the system dataset. Admin writes are gated by `admins/{uid}`.
 
-## 8. Theme system
+## 9. Theme system
 
-`tailwind.config.ts` is the single source for both palettes:
+`tailwind.config.ts` still emits the base semantic variables, while `src/styles/app.css` adds three skin layers:
 
-- **Light (default):** `#ffffff` / `#f8f8f8` paper, `#222222` ink, `#666666` secondary, `#F2C046` gold, light-gray borders.
-- **Dark (optional):** the original `#0B1622` / `#142436` / `#0F4C81` / `#2A70B9` / `#C8D6E4` / `#7A8FA6` palette.
-- The config emits CSS variables through a Tailwind `addBase` plugin. `src/styles/app.css` consumes only those variables; layout rules are unchanged.
-- `src/lib/theme.ts` stores `light | dark` under `dse-candidate:theme`, applies `data-theme` on `<html>`, and updates the browser theme-color meta tag.
-- An inline bootstrap in `index.html` prevents a dark-mode flash for users who previously selected it.
+- **Octavarium** — light sky/grass/silver (`#B8D2E8`, `#89A878`, `#B9BFC4`, ink `#2A2E33`); dark `#1C242C` / `#D8DCE1`.
+- **Train of Thought** — light stone/mist (`#94979A`, `#C6C8C9`, ink `#222222`); recommended dark `#121212` / `#2B2B2B` / `#E6E6E6` / `#E2E2E2`.
+- **Follow system** — Octavarium palette with `prefers-color-scheme` deciding light/dark.
 
-The media/PDF/image previews still use neutral grays from variables; no component structure or font family changed.
+`src/lib/theme.ts` stores `{ mode, appearance, texture }` locally and applies `data-skin`, `data-theme` and `data-texture` to `<html>`. Signed-in users also read/write `userPreferences/{uid}`. A `matchMedia` listener updates the resolved theme while in system mode. The low-opacity texture layers are pseudo-elements and never intercept pointer events.
 
-## 9. Images
+Module-2 surfaces expose their own `--focus-*` / `--winner-*` variables; Train overrides those variable values from global CSS only. No module-2 component code is changed.
+
+## 10. Images
 
 Mistake-photo images are compressed to WebP (max 1280 px, quality 0.72), then stored as data URLs in localStorage. Caps:
 
@@ -211,7 +228,7 @@ Mistake-photo images are compressed to WebP (max 1280 px, quality 0.72), then st
 
 No Firebase Storage is used at all. Mistake photos stay local; the optional weekly-winner-card image uses a compressed Firestore data URL (≤700k characters) with a private pending submission and admin approval.
 
-## 10. Local data import
+## 11. Local data import
 
 `importLocalData()`:
 
@@ -224,14 +241,15 @@ No Firebase Storage is used at all. Mistake photos stay local; the optional week
 
 Stable local IDs make this idempotent for tasks/events/reflections/settings. Check-in document IDs make it idempotent for dates.
 
-## 11. Deferred Mode C
+## 12. Deferred Mode C
 
 The `worker/` folder is an earlier prototype for CalDAV / Google Calendar. It is **not** imported by the Mode B client, not referenced in Settings, and not needed for deployment. It should be treated as design reference only until Mode C is explicitly started.
 
-## 12. Non-goals
+## 13. Non-goals
 
 - No public study-detail leaderboard.
 - No Firebase Storage at all; weekly-winner images are compressed Firestore data URLs.
 - No paid backend or Blaze.
 - No task/event/leaderboard realtime listeners.
+- No background Google Calendar webhook/cron; sync is manual.
 - No CalDAV/Worker in Mode B.

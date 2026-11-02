@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -10,12 +10,13 @@ import type { DateClickArg } from '@fullcalendar/interaction';
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { CalendarEvent, EventType, Task } from '../types';
-import { EVENT_TYPE_LABEL, TASK_KIND_LABEL } from '../types';
+import { TASK_KIND_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { formatFullDate, formatTime, toISODate, todayISO } from '../lib/date';
 import { SubjectBadge } from './SubjectBadge';
 import { TaskEditor } from './TaskEditor';
 import { EventEditor } from './EventEditor';
+import { CalendarSyncPanel } from './CalendarSyncPanel';
 import { Modal } from './Modal';
 import { Icon } from './Icons';
 
@@ -36,6 +37,11 @@ interface CalendarInput {
 
 function isExamType(type: CalendarEvent['type']): boolean {
   return type === 'dse' || type === 'mock' || type === 'school' || type === 'sba';
+}
+
+function categoryLabel(type: CalendarEvent['type']): string {
+  if (isExamType(type)) return 'DSE 考試';
+  return type === 'study' ? '溫書' : '雜事';
 }
 
 /**
@@ -73,13 +79,26 @@ export function CalendarView() {
     updateTask,
     updateEvent,
     toggleSystemExamHidden,
+    refreshCloud,
+    setView,
+    showToast,
+    user,
   } = useApp();
+  const [googleSyncAvailable, setGoogleSyncAvailable] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>();
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [eventDefaultType, setEventDefaultType] = useState<EventType>('dse');
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [systemPreview, setSystemPreview] = useState<CalendarEvent | undefined>();
+
+  const handleGoogleAvailability = useCallback((available: boolean) => {
+    setGoogleSyncAvailable(available);
+  }, []);
+
+  const handleSyncRefresh = useCallback(async () => {
+    await refreshCloud();
+  }, [refreshCloud]);
 
   const inputs = useMemo<CalendarInput[]>(() => {
     const eventInputs: CalendarInput[] = allEvents
@@ -93,6 +112,8 @@ export function CalendarView() {
         classNames: [
           isExamType(event.type) ? 'event-exam' : event.type === 'study' ? 'event-task' : 'event-custom',
           event.source === 'system' ? 'event-system' : '',
+          event.source === 'google' ? 'event-google' : '',
+          event.source === 'ics' ? 'event-ical' : '',
           event.start.slice(0, 10) < todayISO() ? 'event-past' : '',
         ].filter(Boolean),
         rrule: rruleWithStart(event),
@@ -211,6 +232,14 @@ export function CalendarView() {
         </div>
       </div>
 
+      <CalendarSyncPanel
+        uid={user?.uid || null}
+        subjects={data.subjects}
+        syncedEvents={data.syncedEvents}
+        onRefresh={handleSyncRefresh}
+        onGoogleAvailability={handleGoogleAvailability}
+      />
+
       <div className="calendar-layout">
         <section className="card calendar-card">
           <FullCalendar
@@ -273,31 +302,52 @@ export function CalendarView() {
           <div className="day-events">
             {selectedEvents.length ? (
               selectedEvents.map((event) => (
-                <button
-                  type="button"
+                <div
                   className={`day-event${isExamType(event.type) ? ' exam' : event.type === 'custom' ? ' custom' : ''}${event.source === 'system' ? ' system' : ''}`}
                   key={event.id}
-                  onClick={() => {
-                    if (event.source === 'system') {
-                      setSystemPreview(event);
-                    } else {
-                      setEditingEvent(event);
-                      setEventEditorOpen(true);
-                    }
-                  }}
                 >
                   <span className="day-event-bar" />
-                  <span style={{ minWidth: 0 }}>
+                  <button
+                    type="button"
+                    className="day-event-main"
+                    onClick={() => {
+                      if (event.source === 'system') {
+                        setSystemPreview(event);
+                      } else {
+                        setEditingEvent(event);
+                        setEventEditorOpen(true);
+                      }
+                    }}
+                  >
                     <span className="day-event-title">{event.title}</span>
                     <span className="day-event-meta">
-                      {EVENT_TYPE_LABEL[event.type]} · {event.allDay ? '全日' : formatTime(event.start)}
+                      {categoryLabel(event.type)} · {event.allDay ? '全日' : formatTime(event.start)}
                       {event.paper ? ` · ${event.paper}` : ''}
                       {event.rrule ? ' · 重複' : ''}
                       {event.source === 'system' ? ' · 官方唯讀' : ''}
+                      {event.source === 'google' ? ' · Google' : ''}
+                      {event.source === 'ics' ? ' · iCal' : ''}
                     </span>
+                  </button>
+                  <span className="row" style={{ gap: 4 }}>
+                    {event.subjectId ? (
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        title="跳到分科計時器"
+                        aria-label="跳到分科計時器"
+                        onClick={() => {
+                          const subject = data.subjects.find((item) => item.id === event.subjectId);
+                          setView('timer');
+                          showToast(`已跳到計時器${subject ? `；科目：${subject.name}` : ''}。`, 'info');
+                        }}
+                      >
+                        <Icon name="clock" size={14} />
+                      </button>
+                    ) : null}
+                    <Icon name="chevron-right" size={13} />
                   </span>
-                  <Icon name="chevron-right" size={13} />
-                </button>
+                </div>
               ))
             ) : (
               <div className="empty" style={{ minHeight: 100, padding: 18 }}>
@@ -360,6 +410,7 @@ export function CalendarView() {
           event={editingEvent}
           defaultDate={selectedDate}
           defaultType={eventDefaultType}
+          googleSyncAvailable={googleSyncAvailable}
           onClose={() => {
             setEventEditorOpen(false);
             setEditingEvent(undefined);

@@ -31,6 +31,7 @@ export function createDefaultData(): AppData {
     },
     subjects: DEFAULT_SUBJECTS.map((subject) => ({ ...subject })),
     events: [],
+    syncedEvents: [],
     tasks: [],
     checkins: {},
     reflections: {},

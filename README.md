@@ -7,14 +7,17 @@ A quiet DSE study dashboard with two modes:
 | **A · Local-only** | Nothing | Calendar, countdowns, tasks, rollover, ICS, local image archive, streak/heatmap, analytics, reflection |
 | **B · Firebase Spark** | Six `VITE_FIREBASE_*` values | Everything in A, plus Google login, cross-device Firestore sync, one-click local import, opt-in streak leaderboard, admin-managed official DSE timetable |
 
-The default visual theme is **white-gold**: white/platinum paper, charcoal text, gold for streak/check-in/exam countdown emphasis. The original deep-navy Dream Theater palette is retained as an optional dark theme. Layout, component structure and typography are unchanged; only colour tokens switch.
+The visual system now offers **Octavarium** (sky / grass / silver, default) and **Train of Thought** (stone / mist / tunnel, recommended dark), plus a **follow-system** mode. Every page and component reads global CSS variables; light/dark and the background-texture toggle are stored in `userPreferences` for signed-in users.
 
-![Dashboard — white-gold light mode](docs/screenshots/dashboard.png)
+![Dashboard](docs/screenshots/dashboard.png)
 
 ## What is included
 
 - **FullCalendar** month / week / day / list views.
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
+- **Google Calendar two-way sync** — connect with an explicit Calendar OAuth consent, pull Google events into `userCalendarEvents`, and push website create/edit/delete back to Google. Sync is **manual only**, with a 60-second cooldown, to avoid API quota surprises. The access token is kept in sessionStorage; reconnect after it expires.
+- **Apple iCal one-way import** — paste a public `.ics` URL; events are parsed and written to `userCalendarEvents` as read-only mirrors. The website never writes back to Apple Calendar.
+- **Global theme skins** — follow-system / Octavarium / Train of Thought, with light/dark appearance and a background-texture toggle. Preferences live in `userPreferences` and sync across devices; guests use localStorage. Themes are CSS variables only, so all existing pages, popups and module-2 timer/winner surfaces inherit them.
 - **High-precision countdown** — the dashboard shows the nearest selected exam as **X days HH:MM:SS**, refreshed every second against an explicitly Hong Kong (UTC+8) timestamp. A settings panel compares the device clock with time.is / HKEAA and stores a bounded ±5-minute correction.
 - **DSE subject focus** — opt in to the subjects you actually sit (core subjects and individual electives); the hero countdown filters to those subjects only, with a horizontally scrollable switcher when several exams are close. Selection syncs to Firestore in Mode B and localStorage in Mode A.
 - **Per-paper focus timer + study statistics** — a full-screen focus stage with subject/paper title, a huge HH:MM:SS clock, start/remaining/end progress bar and bottom controls; countdown mock exams with 15/5-minute colour warnings and an end-of-time bell, or use a stopwatch for study sessions. Official paper durations come from a built-in JSON library (custom durations supported). Active state is mirrored to Firestore with server timestamps and restored after refresh/backgrounding; Wake Lock and native fullscreen are used where supported. Completed sessions sync to a private `timerSessions` collection and feed weekly / monthly subject-share and trend charts plus CSV export.
@@ -74,7 +77,18 @@ Firestore location must be **asia-east2 (Hong Kong)**. Choose it when creating t
 
 Never put a service-account JSON, Apple app password, OAuth client secret or any other secret in a `VITE_*` variable. Mode B does not need any of them.
 
-After updating from an earlier build, republish [firestore.rules](firestore.rules): settings now includes `clockOffsetMs` / `selectedSubjectIds`, `leaderboard` includes weekly fields, and new `timerState` / `timerSessions` / `leaderboardWinner` / `winnerCardSubmissions` rules are required. No Firebase Storage is needed.
+After updating from an earlier build, republish [firestore.rules](firestore.rules): settings now includes `clockOffsetMs` / `selectedSubjectIds`, `leaderboard` includes weekly fields, and new `timerState` / `timerSessions` / `leaderboardWinner` / `winnerCardSubmissions` / `userCalendarEvents` / `calendarSyncConfig` / `userPreferences` rules are required. No Firebase Storage is needed.
+
+### Google Calendar OAuth
+
+Google login alone is not enough for Calendar. In Google Cloud Console, for the same project:
+
+1. Enable **Google Calendar API**.
+2. Configure the **OAuth consent screen** (External is fine for testing; add test users).
+3. Add `http://localhost:5173` and `https://your-name.github.io` to **Authorized JavaScript origins**.
+4. The app requests `https://www.googleapis.com/auth/calendar.events` only when you press **連接 Google Calendar**; normal Google login stays request-minimal.
+
+The Calendar access token lives in `sessionStorage` for about 55 minutes. There is no refresh token or background sync: press **重新授權** when it expires, then **立即同步**.
 
 ### Authentication
 
@@ -166,6 +180,19 @@ leaderboardWinner/{weekKey}__{uid}
 winnerCardSubmissions/{weekKey}__{uid}
   weekKey, uid, imageData (pending/rejected), updatedAt   (owner + admin only)
 
+userCalendarEvents/{uid}__{eventId}
+  uid, title, start, end, allDay, type, subjectId, paper,
+  description, location, rrule, source(google|ics|local),
+  externalId, etag, updatedAt, deleted   (per-user)
+
+calendarSyncConfig/{uid}
+  googleConnected, googleCalendarId, lastSyncAt, lastError,
+  icalUrls[], updatedAt
+
+userPreferences/{uid}
+  themeMode(system|octavarium|train), theme(light|dark),
+  texture, updatedAt
+
 systemExams/{year}
   year, source, label, events[],
   timezone: 'Asia/Hong_Kong', referenceUrl, updatedAt   (admin write only)
@@ -220,12 +247,12 @@ pnpm typecheck
 pnpm build
 ```
 
-Headless Chrome smoke-tested:
+Build/typecheck verified on this branch; earlier browser smoke tests covered:
 
 - Mode A with all Firebase variables empty (no crash, local mode label, no Firestore calls).
 - Mode B startup with dummy config (login screen, no crash; real auth needs a real project).
-- White-gold default theme and dark theme toggle.
-- System DSE event preview, hide-to-local, theme toggle.
+- Theme switching and dark-mode toggle.
+- System DSE event preview, hide-to-local.
 - Task and event creation.
 - Image compression/upload to localStorage.
 - ICS import/export including RRULE, VTODO and VALARM.
@@ -235,12 +262,12 @@ Real Google login, Firestore writes and leaderboard updates require your Firebas
 
 ## Important limitations
 
-- **Mode B does not include CalDAV / Google Calendar / Cloudflare Worker.** That is deferred Mode C. The `worker/` directory is an inactive prototype and is not referenced by the Mode B UI.
-- **ICS is a format, not a sync protocol.** Import/export is a snapshot; read-only subscriptions are one-way.
+- **Google Calendar is manual two-way sync, not a webhook/background daemon.** Press **立即同步** (60-second cooldown); the OAuth access token lasts about 55 minutes and must be reauthorized. CalDAV and Cloudflare Worker remain deferred.
+- **iCal import is one-way and subject to browser CORS.** A public `.ics` URL must allow browser fetches; the website never writes to Apple Calendar. Import/export snapshots are not continuous subscriptions.
 - **Mistake-photo images never leave localStorage**; localStorage is roughly 5 MB. The optional weekly-winner card image is compressed into a Firestore data URL (≤700k characters) and is not public until an admin approves it.
 - **The DSE database is a study aid.** 2025 is the transcribed official base; later years are estimates and must be checked against HKEAA. The app does not claim official status for shifted dates.
 - **Rules cannot compute a streak.** The client computes and writes its own public streak; rules constrain ownership, field shape, one check-in per day and a 20-per-hour public metric write budget, not mathematical correctness.
-- **Admin access is manual.** Create `admins/{your-auth-uid}` in Firestore Console; never create it from the public client.
+- **Admin access** is the `admins/{uid}` marker, or the bootstrap owner email `jackyyouyou0704@gmail.com` in the current rules; never create the marker from the public client.
 
 ## Docs
 

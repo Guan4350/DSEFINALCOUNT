@@ -2801,6 +2801,15 @@
 .theme-swatch.dark i:nth-child(1) { background: #0b1622; }
 .theme-swatch.dark i:nth-child(2) { background: #142436; }
 .theme-swatch.dark i:nth-child(3) { background: #f2c046; }
+.theme-swatch.system i:nth-child(1) { background: #b8d2e8; }
+.theme-swatch.system i:nth-child(2) { background: #f7fbf9; }
+.theme-swatch.system i:nth-child(3) { background: #89a878; }
+.theme-swatch.octavarium i:nth-child(1) { background: #b8d2e8; }
+.theme-swatch.octavarium i:nth-child(2) { background: #89a878; }
+.theme-swatch.octavarium i:nth-child(3) { background: #b9bfc4; }
+.theme-swatch.train i:nth-child(1) { background: #94979a; }
+.theme-swatch.train i:nth-child(2) { background: #2b2b2b; }
+.theme-swatch.train i:nth-child(3) { background: #e6e6e6; }
 
 .appearance-note {
   color: var(--muted);
@@ -4602,4 +4611,416 @@
   .admin-review-card {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ==========================================================================
+   Global theme skins — Octavarium / Train of Thought
+   Only CSS variables and visual overrides; module 2 logic is untouched.
+   ========================================================================== */
+[data-skin='octavarium'][data-theme='light'] {
+  --bg: #f7fbf9;
+  --bg-soft: #eef5f2;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eff5f2;
+  --sidebar-bg: #f2f7f5;
+  --topbar-bg: rgba(247, 251, 249, 0.94);
+  --primary: #2a2e33;
+  --primary-hover: #46505a;
+  --on-primary: #ffffff;
+  --text: #2a2e33;
+  --muted: #66707a;
+  --accent: #89a878;
+  --accent-soft: rgba(137, 168, 120, 0.18);
+  --accent-strong: #5f7b52;
+  --accent-border: rgba(137, 168, 120, 0.44);
+  --accent-hairline: rgba(137, 168, 120, 0.3);
+  --on-accent: #ffffff;
+  --line: #dce6e2;
+  --line-strong: #c9d6d1;
+  --line-faint: rgba(42, 46, 51, 0.06);
+  --hover: rgba(42, 46, 51, 0.04);
+  --selected: rgba(184, 210, 232, 0.35);
+  --card-border: rgba(42, 46, 51, 0.08);
+  --input-bg: #f3f8f5;
+  --input-focus-bg: #ffffff;
+  --exam: #a94442;
+  --exam-soft: rgba(212, 122, 70, 0.12);
+  --exam-text: #a34f32;
+  --exam-border: rgba(212, 122, 70, 0.42);
+  --event-exam-bg: rgba(212, 122, 70, 0.11);
+  --event-task-bg: rgba(137, 168, 120, 0.14);
+  --event-custom-bg: rgba(185, 191, 196, 0.18);
+  --fc-today: rgba(184, 210, 232, 0.28);
+  --fc-highlight: rgba(137, 168, 120, 0.18);
+  --heat-0: #eef2ef;
+  --heat-1: rgba(137, 168, 120, 0.28);
+  --heat-2: rgba(137, 168, 120, 0.48);
+  --heat-3: rgba(137, 168, 120, 0.7);
+  --heat-4: #89a878;
+  --heat-border: rgba(42, 46, 51, 0.05);
+  --grid-line: rgba(42, 46, 51, 0.025);
+  --grid-line-strong: rgba(42, 46, 51, 0.04);
+  --shadow-card: 0 10px 30px rgba(42, 46, 51, 0.06), 0 2px 8px rgba(42, 46, 51, 0.04);
+  --shadow-card-hover: 0 20px 48px rgba(42, 46, 51, 0.1), 0 4px 14px rgba(42, 46, 51, 0.05);
+  --trend-area: rgba(137, 168, 120, 0.16);
+  --image-border: rgba(42, 46, 51, 0.14);
+}
+
+[data-skin='octavarium'][data-theme='dark'] {
+  --bg: #1c242c;
+  --bg-soft: #1c242c;
+  --surface: #232e37;
+  --surface-raised: #28343e;
+  --surface-sunken: #182027;
+  --sidebar-bg: #182027;
+  --topbar-bg: rgba(28, 36, 44, 0.94);
+  --primary: #b8d2e8;
+  --primary-hover: #d8e6f2;
+  --on-primary: #1c242c;
+  --text: #d8dce1;
+  --muted: #94a2ac;
+  --accent: #89a878;
+  --accent-soft: rgba(137, 168, 120, 0.14);
+  --accent-strong: #b8d2e8;
+  --accent-border: rgba(184, 210, 232, 0.34);
+  --accent-hairline: rgba(184, 210, 232, 0.22);
+  --on-accent: #1c242c;
+  --line: #303c46;
+  --line-strong: #40505c;
+  --line-faint: rgba(216, 220, 225, 0.08);
+  --hover: rgba(184, 210, 232, 0.08);
+  --selected: rgba(184, 210, 232, 0.16);
+  --card-border: rgba(216, 220, 225, 0.1);
+  --input-bg: #182027;
+  --input-focus-bg: #1b242c;
+  --exam: #d47a46;
+  --exam-soft: rgba(212, 122, 70, 0.16);
+  --exam-text: #e0a084;
+  --exam-border: rgba(212, 122, 70, 0.5);
+  --event-exam-bg: rgba(212, 122, 70, 0.16);
+  --event-task-bg: rgba(137, 168, 120, 0.16);
+  --event-custom-bg: rgba(185, 191, 196, 0.12);
+  --fc-today: rgba(184, 210, 232, 0.08);
+  --fc-highlight: rgba(137, 168, 120, 0.16);
+  --heat-0: #182027;
+  --heat-1: rgba(137, 168, 120, 0.18);
+  --heat-2: rgba(137, 168, 120, 0.36);
+  --heat-3: rgba(137, 168, 120, 0.6);
+  --heat-4: #89a878;
+  --heat-border: rgba(216, 220, 225, 0.04);
+  --grid-line: rgba(184, 210, 232, 0.03);
+  --grid-line-strong: rgba(184, 210, 232, 0.045);
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-card-hover: 0 22px 54px rgba(0, 0, 0, 0.36), 0 5px 16px rgba(0, 0, 0, 0.22);
+  --trend-area: rgba(137, 168, 120, 0.14);
+  --image-border: rgba(216, 220, 225, 0.18);
+}
+
+[data-skin='train'][data-theme='light'] {
+  --bg: #f4f4f4;
+  --bg-soft: #ededed;
+  --surface: #fafafa;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ececec;
+  --sidebar-bg: #ededed;
+  --topbar-bg: rgba(244, 244, 244, 0.94);
+  --primary: #2b2b2b;
+  --primary-hover: #4a4a4a;
+  --on-primary: #ffffff;
+  --text: #222222;
+  --muted: #626568;
+  --accent: #94979a;
+  --accent-soft: rgba(148, 151, 154, 0.16);
+  --accent-strong: #5f6265;
+  --accent-border: rgba(148, 151, 154, 0.45);
+  --accent-hairline: rgba(148, 151, 154, 0.3);
+  --on-accent: #ffffff;
+  --line: #d6d7d8;
+  --line-strong: #c6c8c9;
+  --line-faint: rgba(34, 34, 34, 0.06);
+  --hover: rgba(34, 34, 34, 0.04);
+  --selected: rgba(148, 151, 154, 0.18);
+  --card-border: rgba(34, 34, 34, 0.08);
+  --input-bg: #eeeeee;
+  --input-focus-bg: #ffffff;
+  --exam: #8a4b4b;
+  --exam-soft: rgba(138, 75, 75, 0.1);
+  --exam-text: #7d4040;
+  --exam-border: rgba(138, 75, 75, 0.4);
+  --event-exam-bg: rgba(138, 75, 75, 0.1);
+  --event-task-bg: rgba(148, 151, 154, 0.18);
+  --event-custom-bg: rgba(198, 200, 201, 0.24);
+  --fc-today: rgba(148, 151, 154, 0.12);
+  --fc-highlight: rgba(148, 151, 154, 0.2);
+  --heat-0: #e8e8e8;
+  --heat-1: rgba(148, 151, 154, 0.24);
+  --heat-2: rgba(148, 151, 154, 0.44);
+  --heat-3: rgba(148, 151, 154, 0.66);
+  --heat-4: #94979a;
+  --heat-border: rgba(34, 34, 34, 0.05);
+  --grid-line: rgba(34, 34, 34, 0.03);
+  --grid-line-strong: rgba(34, 34, 34, 0.045);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 20px 48px rgba(0, 0, 0, 0.1), 0 4px 14px rgba(0, 0, 0, 0.05);
+  --trend-area: rgba(148, 151, 154, 0.18);
+  --image-border: rgba(34, 34, 34, 0.14);
+}
+
+[data-skin='train'][data-theme='dark'] {
+  --bg: #121212;
+  --bg-soft: #121212;
+  --surface: #1b1b1b;
+  --surface-raised: #202020;
+  --surface-sunken: #0d0d0d;
+  --sidebar-bg: #161616;
+  --topbar-bg: rgba(18, 18, 18, 0.94);
+  --primary: #e6e6e6;
+  --primary-hover: #ffffff;
+  --on-primary: #121212;
+  --text: #e2e2e2;
+  --muted: #9a9a9a;
+  --accent: #e6e6e6;
+  --accent-soft: rgba(230, 230, 230, 0.1);
+  --accent-strong: #e6e6e6;
+  --accent-border: rgba(230, 230, 230, 0.24);
+  --accent-hairline: rgba(230, 230, 230, 0.16);
+  --on-accent: #121212;
+  --line: #2b2b2b;
+  --line-strong: #3a3a3a;
+  --line-faint: rgba(226, 226, 226, 0.08);
+  --hover: rgba(255, 255, 255, 0.06);
+  --selected: rgba(230, 230, 230, 0.12);
+  --card-border: rgba(230, 230, 230, 0.1);
+  --input-bg: #191919;
+  --input-focus-bg: #222222;
+  --exam: #c47a7a;
+  --exam-soft: rgba(196, 122, 122, 0.14);
+  --exam-text: #d9a0a0;
+  --exam-border: rgba(196, 122, 122, 0.4);
+  --event-exam-bg: rgba(196, 122, 122, 0.14);
+  --event-task-bg: rgba(230, 230, 230, 0.08);
+  --event-custom-bg: rgba(198, 200, 201, 0.1);
+  --fc-today: rgba(230, 230, 230, 0.06);
+  --fc-highlight: rgba(230, 230, 230, 0.1);
+  --heat-0: #151515;
+  --heat-1: rgba(230, 230, 230, 0.14);
+  --heat-2: rgba(230, 230, 230, 0.3);
+  --heat-3: rgba(230, 230, 230, 0.52);
+  --heat-4: #e6e6e6;
+  --heat-border: rgba(230, 230, 230, 0.04);
+  --grid-line: rgba(230, 230, 230, 0.025);
+  --grid-line-strong: rgba(230, 230, 230, 0.04);
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 22px 54px rgba(0, 0, 0, 0.5), 0 5px 16px rgba(0, 0, 0, 0.35);
+  --trend-area: rgba(230, 230, 230, 0.12);
+  --image-border: rgba(230, 230, 230, 0.16);
+}
+
+html,
+body,
+.sidebar,
+.topbar,
+.card,
+.btn,
+.nav-item,
+.input,
+.select,
+.textarea,
+.modal-panel,
+.calendar-sync-block,
+.theme-choice {
+  transition:
+    background-color 0.28s ease,
+    color 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease;
+}
+
+/* Low-opacity atmosphere; never covers content. */
+html[data-texture='on'] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.055;
+}
+
+html[data-texture='on'][data-skin='octavarium'] body::after {
+  background:
+    radial-gradient(circle at 18% 20%, var(--accent) 0 1.1%, transparent 1.2%),
+    radial-gradient(circle at 50% 20%, var(--accent) 0 0.7%, transparent 0.8%),
+    radial-gradient(circle at 82% 20%, var(--accent) 0 1.1%, transparent 1.2%),
+    repeating-linear-gradient(90deg, transparent 0 94px, var(--grid-line-strong) 94px 95px);
+  animation: octa-drift 24s ease-in-out infinite alternate;
+}
+
+html[data-texture='on'][data-skin='train'] body::after {
+  background:
+    repeating-radial-gradient(ellipse at 50% 42%, transparent 0 54px, var(--grid-line-strong) 55px 56px, transparent 57px 110px),
+    radial-gradient(ellipse at 50% 42%, transparent 0 18%, var(--grid-line) 19% 20%, transparent 21% 34%),
+    conic-gradient(from 210deg at 50% 42%, transparent 0 30%, var(--line-faint) 31% 32%, transparent 33% 64%, var(--line-faint) 65% 66%, transparent 67%);
+  animation: train-breathe 32s ease-in-out infinite alternate;
+}
+
+@keyframes octa-drift {
+  from { transform: translate3d(-4px, -2px, 0) scale(1.02); }
+  to { transform: translate3d(6px, 4px, 0) scale(1.05); }
+}
+
+@keyframes train-breathe {
+  from { transform: scale(1.02); opacity: 0.045; }
+  to { transform: scale(1.08); opacity: 0.065; }
+}
+
+/* Train skin applies to module 2 full-screen/winner surfaces through their
+   existing CSS variables only. No component logic is changed. */
+[data-skin='train'] .timer-focus {
+  --focus-bg: #121212;
+  --focus-text: #e2e2e2;
+  --focus-muted: #9a9a9a;
+  --focus-line: rgba(226, 226, 226, 0.16);
+  --focus-soft: rgba(230, 230, 230, 0.08);
+  --focus-sky: #94979a;
+  --focus-grass: #c6c8c9;
+  --focus-silver: #6e7174;
+  --focus-warning: #d47a46;
+  background:
+    radial-gradient(75% 60% at 50% 35%, rgba(148, 151, 154, 0.14), transparent 62%),
+    repeating-radial-gradient(ellipse at 50% 42%, transparent 0 120px, rgba(230, 230, 230, 0.035) 121px 122px, transparent 123px 240px),
+    #121212;
+}
+
+[data-skin='train'][data-theme='light'] .timer-focus {
+  --focus-bg: #f4f4f4;
+  --focus-text: #222222;
+  --focus-muted: #626568;
+  --focus-line: rgba(34, 34, 34, 0.16);
+  --focus-soft: rgba(148, 151, 154, 0.12);
+  --focus-sky: #c6c8c9;
+  --focus-grass: #94979a;
+  --focus-silver: #6e7174;
+  background:
+    radial-gradient(75% 60% at 50% 35%, rgba(148, 151, 154, 0.16), transparent 62%),
+    repeating-radial-gradient(ellipse at 50% 42%, transparent 0 120px, rgba(34, 34, 34, 0.045) 121px 122px, transparent 123px 240px),
+    #f4f4f4;
+}
+
+[data-skin='train'] .winner-card {
+  --winner-sky: #94979a;
+  --winner-grass: #c6c8c9;
+  --winner-silver: #6e7174;
+  --winner-ink: #e2e2e2;
+  --winner-muted: #9a9a9a;
+  --winner-line: rgba(226, 226, 226, 0.14);
+  background:
+    radial-gradient(70% 80% at 8% 0%, rgba(148, 151, 154, 0.16), transparent 62%),
+    radial-gradient(70% 90% at 100% 100%, rgba(230, 230, 230, 0.06), transparent 62%),
+    #1b1b1b;
+}
+
+[data-skin='train'][data-theme='light'] .winner-card {
+  --winner-ink: #222222;
+  --winner-muted: #626568;
+  --winner-line: rgba(34, 34, 34, 0.12);
+  background:
+    radial-gradient(70% 80% at 8% 0%, rgba(148, 151, 154, 0.18), transparent 62%),
+    radial-gradient(70% 90% at 100% 100%, rgba(198, 200, 201, 0.22), transparent 62%),
+    var(--surface);
+}
+
+[data-skin='train'] .winner-visual {
+  background: linear-gradient(145deg, rgba(148, 151, 154, 0.36), rgba(230, 230, 230, 0.12));
+}
+
+/* Calendar sync panel */
+.calendar-sync-panel {
+  padding: 18px 20px;
+}
+
+.calendar-sync-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.calendar-sync-head h2 {
+  margin: 3px 0 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.calendar-sync-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.calendar-sync-block {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+
+.calendar-sync-block .row {
+  gap: 8px;
+}
+
+.fc-event.event-google {
+  border-left: 3px solid var(--accent-strong) !important;
+}
+
+.fc-event.event-ical {
+  border-left: 3px dashed var(--muted) !important;
+}
+
+.legend-swatch.google {
+  background: var(--accent-strong);
+}
+
+.legend-swatch.ical {
+  background: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .calendar-sync-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-texture='on'] body::after {
+    animation: none !important;
+  }
+}
+
+.day-event-main {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+/* Let the large countdown/timer numerals inherit the active skin instead of
+   the legacy gold gradient. */
+[data-skin] .countdown-number,
+[data-skin] .countdown-number.accent,
+[data-skin] .timer-clock:not(.warning-15):not(.warning-5) {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.day-event-main {
+  width: 100%;
 }
