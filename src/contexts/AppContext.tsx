@@ -25,6 +25,7 @@ import type {
   UsageSnapshot,
 } from '../types';
 import { addDays, getSemester, todayISO } from '../lib/date';
+import { currentWeekKey, weeklySeconds } from '../lib/week';
 import { computeStats } from '../lib/analytics';
 import { createDefaultData, createDemoData } from '../lib/defaults';
 import {
@@ -71,7 +72,7 @@ import {
 import type { SystemExamEvent } from '../data/dse2025';
 import { timetableForYear, toCalendarEvents, type OfficialTimetable } from '../lib/systemExams';
 
-export type View = 'dashboard' | 'calendar' | 'tasks' | 'timer' | 'gallery' | 'analytics' | 'leaderboard' | 'settings';
+export type View = 'dashboard' | 'calendar' | 'tasks' | 'timer' | 'gallery' | 'analytics' | 'leaderboard' | 'admin' | 'settings';
 
 export interface Toast {
   id: string;
@@ -368,7 +369,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // One board sync for the whole import: importing 90 historical check-ins
       // must not spend 90 leaderboard rate-limit slots.
       try {
-        await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn);
+        const weekKey = currentWeekKey();
+        await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn, {
+          seconds: weeklySeconds(current.timerSessions, weekKey),
+          weekKey,
+        });
       } catch {
         // A throttled board sync must not fail the data import.
       }
@@ -456,6 +461,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await saveTimerSessionCloud(user.uid, session);
         } catch (error) {
           showToast(`計時紀錄已存本機，雲端寫入失敗：${messageFor(error)}`, 'error');
+          return;
+        }
+        try {
+          const weekKey = currentWeekKey();
+          await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn, {
+            seconds: weeklySeconds(next.timerSessions, weekKey),
+            weekKey,
+          });
+        } catch {
+          // The private session is already safe; the weekly board can retry on
+          // the next timer/check-in without surfacing a misleading error.
         }
       }
     },
@@ -465,15 +481,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteTimerSession = useCallback(
     async (sessionId: string) => {
       const current = dataRef.current;
-      if (!persist({
-        ...current,
-        timerSessions: current.timerSessions.filter((item) => item.id !== sessionId),
-      })) return;
+      const nextSessions = current.timerSessions.filter((item) => item.id !== sessionId);
+      if (!persist({ ...current, timerSessions: nextSessions })) return;
       if (user && cloudReady) {
         try {
           await removeTimerSession(user.uid, sessionId);
         } catch (error) {
           showToast(`本機已刪除，雲端刪除失敗：${messageFor(error)}`, 'error');
+          return;
+        }
+        try {
+          const weekKey = currentWeekKey();
+          await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn, {
+            seconds: weeklySeconds(nextSessions, weekKey),
+            weekKey,
+          });
+        } catch {
+          // Weekly board reconciliation is best-effort.
         }
       }
     },
@@ -658,7 +682,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user && cloudReady) {
         try {
           await saveProfile(user.uid, nextProfile);
-          await syncLeaderboardDoc(user, nextProfile.displayName, nextProfile.leaderboardOptIn);
+          const weekKey = currentWeekKey();
+          await syncLeaderboardDoc(user, nextProfile.displayName, nextProfile.leaderboardOptIn, {
+            seconds: weeklySeconds(dataRef.current.timerSessions, weekKey),
+            weekKey,
+          });
         } catch (error) {
           showToast(`個人資料雲端更新失敗：${messageFor(error)}`, 'error');
         }
@@ -703,7 +731,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             checkins: { ...dataRef.current.checkins, [date]: response.checkin },
           });
           try {
-            await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn);
+            const weekKey = currentWeekKey();
+            await syncLeaderboardDoc(user, current.profile.displayName, current.profile.leaderboardOptIn, {
+              seconds: weeklySeconds(dataRef.current.timerSessions, weekKey),
+              weekKey,
+            });
             showToast('打卡已同步；排行榜會於下次輪詢更新。', 'success');
           } catch (error) {
             showToast(`打卡已同步；排行榜暫未更新（${messageFor(error)}）。`, 'info');

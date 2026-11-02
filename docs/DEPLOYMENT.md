@@ -12,7 +12,7 @@ Mode A is the fallback: leave all six Firebase variables empty.
 - pnpm (`corepack enable` once) or npm
 - A GitHub account
 - A Firebase project on the **Spark** plan
-- No billing account, no Cloud Functions, no Firebase Storage
+- No billing account, no Cloud Functions; Storage is optional and used only for the weekly-winner image
 
 ---
 
@@ -42,12 +42,13 @@ This proves the static app is healthy before Firebase is involved.
 1. Firebase Console → **Create project**.
 2. Confirm the plan is **Spark**. Do not add a billing account.
 3. Add a **Web app** (`</>`), copy the six `firebaseConfig` values.
-4. **Build → Authentication → Sign-in method** → enable **Google only**.
-   Do not enable anonymous, email/password, phone or other providers.
+4. **Build → Authentication → Sign-in method** → enable **Google** and **Email/Password**.
+   Do not enable anonymous, phone or other providers. Email sign-in is available from Settings; Google remains in the header.
 5. **Build → Firestore Database → Create database**.
    - Location: **asia-east2 (Hong Kong)**.
    - This cannot be changed later. If the project already has a Firestore database in another region, create a new Firebase project rather than trying to move it.
    - Start in production mode.
+6. **Build → Storage → Get started** (Spark includes a small free bucket). The weekly winner card uses Storage only for its optional image. Publish [../storage.rules](../storage.rules) from the Storage Rules tab (or `firebase deploy --only storage`).
 
 ### Authorized domains
 
@@ -84,7 +85,7 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, and each user has a `timerSessions/{id}` subcollection. If you deployed an earlier build, **republish these rules** before changing the clock, subject selection or saving a timer; otherwise Firestore rejects the write with `permission-denied`.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions` and `leaderboardWinner` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer or opening the weekly card; otherwise Firestore rejects the write with `permission-denied`. Publish [../storage.rules](../storage.rules) separately for winner images.
 
 Manual smoke checks after publishing:
 
@@ -100,6 +101,9 @@ Manual smoke checks after publishing:
 10. Open **計時**, start a short countdown, pause/resume and mark it complete. Confirm `users/{uid}/timerSessions/{id}` contains the subject, paper, mode, timestamps, duration and notes.
 11. Switch to **正計時**, run a few seconds and mark complete; confirm a second private session and the weekly/monthly charts update.
 12. Export the CSV and confirm the downloaded file opens with Chinese headers intact.
+13. Reload the page while a timer is running; confirm it restores from `timerState/current` without losing elapsed time.
+14. From two test accounts, make one the weekly top (visible leaderboard), upload a winner image and quote. Confirm the image stays pending; use an admin account's **管理後台** to approve it, then confirm it renders and the poster downloads.
+15. Email sign-in: create an account in Settings, verify it appears under Authentication → Users and that `users/{uid}` is created.
 
 ### Indexes
 
@@ -191,7 +195,7 @@ Free tier, per day (check current Firebase terms):
 
 This project intentionally avoids:
 
-- Firebase Storage
+- Firebase Storage for mistake photos (only the optional weekly-winner card image uses Storage)
 - Cloud Functions
 - realtime listeners of any kind (the leaderboard is polled every 60 seconds)
 - background workers/cron
@@ -261,7 +265,7 @@ Set `VITE_BASE_PATH=/<repo>/` and redeploy.
 
 ### Images fail
 
-Close to the localStorage cap. Export a JSON backup and delete old images. This is intentional: Mode B does not use Firebase Storage.
+Close to the localStorage cap. Export a JSON backup and delete old images. Mistake photos are intentionally local-only; only the optional weekly-winner card image uses Firebase Storage.
 
 ### Firestore location is wrong
 

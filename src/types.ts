@@ -144,6 +144,8 @@ export interface LeaderboardEntry {
   displayName: string;
   currentStreak: number;
   totalDays: number;
+  weeklySeconds?: number;
+  weekKey?: string;
   visible: boolean;
   updatedAt?: string;
 }

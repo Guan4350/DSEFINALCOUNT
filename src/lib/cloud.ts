@@ -30,6 +30,7 @@ import type {
 } from '../types';
 import { addDays, todayISO } from './date';
 import { db, firebaseConfigured } from './firebase';
+import type { ActiveTimerState } from './activeTimer';
 import { recordUsage } from './usage';
 
 export interface CloudSnapshot {
@@ -310,6 +311,85 @@ export async function removeTimerSession(uid: string, sessionId: string): Promis
   recordUsage(0, 1);
 }
 
+function activeTimerFromData(data: DocumentData | undefined): ActiveTimerState | null {
+  if (!data) return null;
+  const startedAt = data.startedAt instanceof Timestamp ? data.startedAt.toDate().getTime() : 0;
+  const runningSinceMs = data.runningSince instanceof Timestamp ? data.runningSince.toDate().getTime() : null;
+  if (!startedAt) return null;
+  return {
+    mode: data.mode === 'stopwatch' ? 'stopwatch' : 'countdown',
+    subjectId: asString(data.subjectId),
+    subjectName: asString(data.subjectName, '未命名科目'),
+    paper: asString(data.paper, '自訂'),
+    notes: asString(data.notes),
+    plannedSeconds: Math.max(0, Math.round(asNumber(data.plannedSeconds, 0))),
+    referenceSeconds: Math.max(0, Math.round(asNumber(data.referenceSeconds, 3600))),
+    startedAtMs: startedAt,
+    runningSinceMs,
+    accumulatedMs: Math.max(0, Math.round(asNumber(data.accumulatedMs, 0))),
+    status: runningSinceMs === null ? 'paused' : 'running',
+  };
+}
+
+export async function fetchCloudActiveTimer(uid: string): Promise<ActiveTimerState | null> {
+  if (!db) return null;
+  const snapshot = await getDoc(doc(db, 'users', uid, 'timerState', 'current'));
+  recordUsage(1, 0);
+  return snapshot.exists() ? activeTimerFromData(snapshot.data()) : null;
+}
+
+async function writeCloudActiveTimer(
+  uid: string,
+  state: ActiveTimerState,
+  freshStart: boolean,
+): Promise<{ state: ActiveTimerState; offsetMs: number }> {
+  if (!db) throw new Error('Firestore 尚未設定。');
+  const before = Date.now();
+  await setDoc(doc(db, 'users', uid, 'timerState', 'current'), {
+    mode: state.mode,
+    subjectId: state.subjectId,
+    subjectName: state.subjectName,
+    paper: state.paper,
+    notes: state.notes,
+    plannedSeconds: state.plannedSeconds,
+    referenceSeconds: state.referenceSeconds,
+    startedAt: freshStart ? serverTimestamp() : Timestamp.fromMillis(state.startedAtMs),
+    runningSince: state.runningSinceMs !== null ? serverTimestamp() : null,
+    accumulatedMs: state.accumulatedMs,
+    status: state.status,
+    updatedAt: serverTimestamp(),
+  });
+  const snapshot = await getDoc(doc(db, 'users', uid, 'timerState', 'current'));
+  const after = Date.now();
+  recordUsage(0, 1);
+  const remote = activeTimerFromData(snapshot.data());
+  if (!remote) return { state, offsetMs: 0 };
+  const offsetMs = remote.runningSinceMs !== null
+    ? Math.round(remote.runningSinceMs - (before + after) / 2)
+    : 0;
+  return { state: remote, offsetMs };
+}
+
+export async function startCloudActiveTimer(
+  uid: string,
+  state: ActiveTimerState,
+): Promise<{ state: ActiveTimerState; offsetMs: number }> {
+  return writeCloudActiveTimer(uid, state, true);
+}
+
+export async function saveCloudActiveTimer(
+  uid: string,
+  state: ActiveTimerState,
+): Promise<{ state: ActiveTimerState; offsetMs: number }> {
+  return writeCloudActiveTimer(uid, state, false);
+}
+
+export async function clearCloudActiveTimer(uid: string): Promise<void> {
+  if (!db) return;
+  await deleteDoc(doc(db, 'users', uid, 'timerState', 'current'));
+  recordUsage(0, 1);
+}
+
 export async function saveEvent(uid: string, event: CalendarEvent): Promise<void> {
   if (!db) throw new Error('Firestore 尚未設定。');
   await setDoc(doc(db, 'users', uid, 'events', event.id), eventToData(event));
@@ -405,6 +485,8 @@ export async function fetchLeaderboardOnce(): Promise<LeaderboardEntry[]> {
       displayName: asString(data.displayName, 'Candidate'),
       currentStreak: asNumber(data.currentStreak, 0),
       totalDays: asNumber(data.totalDays, 0),
+      weeklySeconds: asNumber(data.weeklySeconds, 0),
+      weekKey: asString(data.weekKey) || undefined,
       visible: true,
       updatedAt: timestampToISO(data.updatedAt),
     };

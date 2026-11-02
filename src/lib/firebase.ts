@@ -1,18 +1,22 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   browserLocalPersistence,
+  createUserWithEmailAndPassword,
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut,
+  updateProfile as updateAuthProfile,
   type Auth,
   type User,
 } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -37,15 +41,17 @@ export const firebaseConfigured = requiredConfig.every((value) => Boolean(value)
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (firebaseConfigured) {
   app = getApps().length ? getApp() : initializeApp(config as Required<typeof config>);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   void setPersistence(auth, browserLocalPersistence);
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -70,6 +76,25 @@ export async function signInWithGoogle(): Promise<User> {
 
 export async function signOutOfGoogle(): Promise<void> {
   if (auth) await signOut(auth);
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<User> {
+  if (!auth) throw new Error('Firebase 尚未設定。請先填入 VITE_FIREBASE_* 環境變數。');
+  const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+  return result.user;
+}
+
+export async function signUpWithEmail(email: string, password: string, displayName: string): Promise<User> {
+  if (!auth) throw new Error('Firebase 尚未設定。請先填入 VITE_FIREBASE_* 環境變數。');
+  const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+  const name = displayName.trim().slice(0, 40);
+  if (name) await updateAuthProfile(result.user, { displayName: name });
+  return result.user;
+}
+
+export function requireStorage(): FirebaseStorage {
+  if (!storage) throw new Error('Firebase Storage 尚未設定。');
+  return storage;
 }
 
 export function observeAuth(callback: (user: User | null) => void): () => void {

@@ -9,6 +9,7 @@ import { TimerView } from './TimerView';
 import { GalleryView } from './GalleryView';
 import { AnalyticsView } from './AnalyticsView';
 import { LeaderboardView } from './LeaderboardView';
+import { AdminView } from './AdminView';
 import { SettingsView } from './SettingsView';
 import { Icon, type IconName } from './Icons';
 
@@ -44,6 +45,7 @@ const TITLES: Record<View, string> = {
   gallery: '錯題相簿',
   analytics: '學習分析',
   leaderboard: '排行榜',
+  admin: '管理後台',
   settings: '設定',
 };
 
@@ -61,6 +63,7 @@ export function Shell() {
     cloudReady,
     cloudBusy,
     needsImport,
+    isAdmin,
     importLocalData,
     signIn,
     refreshCloud,
@@ -69,6 +72,24 @@ export function Shell() {
     usage,
   } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navGroups = useMemo(
+    () =>
+      isAdmin
+        ? NAV.map((group) =>
+            group.section === 'System'
+              ? {
+                  ...group,
+                  items: [
+                    ...group.items,
+                    { view: 'admin' as View, label: '管理後台', icon: 'lock' as IconName },
+                  ],
+                }
+              : group,
+          )
+        : NAV,
+    [isAdmin],
+  );
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -94,7 +115,7 @@ export function Shell() {
         </div>
 
         <nav className="nav">
-          {NAV.map((group) => (
+          {navGroups.map((group) => (
             <div key={group.section}>
               <div className="nav-section">{group.section}</div>
               {group.items.map((item) => (
@@ -161,10 +182,15 @@ export function Shell() {
                 <Icon name="settings" size={13} />
               </button>
             ) : cloudEnabled ? (
-              <button type="button" className="btn btn-sm" onClick={() => void signIn()}>
-                <Icon name="user" size={13} />
-                Google 登入
-              </button>
+              <div className="row" style={{ gap: 6 }}>
+                <button type="button" className="btn btn-sm" onClick={() => void signIn()}>
+                  <Icon name="user" size={13} />
+                  Google 登入
+                </button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setView('settings')}>
+                  Email 登入
+                </button>
+              </div>
             ) : (
               <span className="chip">本機模式</span>
             )}
@@ -215,6 +241,7 @@ export function Shell() {
           {view === 'gallery' ? <GalleryView /> : null}
           {view === 'analytics' ? <AnalyticsView /> : null}
           {view === 'leaderboard' ? <LeaderboardView /> : null}
+          {view === 'admin' ? <AdminView /> : null}
           {view === 'settings' ? <SettingsView /> : null}
         </main>
       </div>

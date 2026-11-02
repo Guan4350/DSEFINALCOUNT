@@ -13,6 +13,7 @@ import type { SystemExamEvent } from '../data/dse2025';
 import { RECURSO_COUNTDOWN_URL, type OfficialTimetable } from './systemExams';
 import { db } from './firebase';
 import { addDays } from './date';
+import { currentWeekKey } from './week';
 import { recordUsage } from './usage';
 
 /**
@@ -210,7 +211,12 @@ export async function recordCloudCheckin(
  * Check-in and import call this once, outside their own transaction, so a
  * quota rejection can never roll back a saved check-in.
  */
-export async function syncLeaderboardDoc(user: User, displayName: string, optIn: boolean): Promise<void> {
+export async function syncLeaderboardDoc(
+  user: User,
+  displayName: string,
+  optIn: boolean,
+  weekly?: { seconds: number; weekKey: string },
+): Promise<void> {
   if (!db) return;
   const boardRef = doc(db, 'leaderboard', user.uid);
   const statsRef = doc(db, 'users', user.uid, 'meta', 'stats');
@@ -219,19 +225,28 @@ export async function syncLeaderboardDoc(user: User, displayName: string, optIn:
   await runTransaction(db, async (transaction) => {
     const boardSnapshot = await transaction.get(boardRef);
     const statsSnapshot = await transaction.get(statsRef);
+    const existing = boardSnapshot.exists() ? boardSnapshot.data() : undefined;
     const stats = statsSnapshot.exists() ? statsSnapshot.data() : {};
     const currentStreak = numberValue(stats.currentStreak, 0);
     const totalDays = numberValue(stats.totalDays, 0);
     const quota = leaderboardQuota(
-      boardSnapshot.exists() ? boardSnapshot.data() : undefined,
+      existing,
       { displayName: name, currentStreak, totalDays },
     );
+    const weekKey = weekly?.weekKey || currentWeekKey();
+    const weeklySeconds = weekly
+      ? Math.max(0, Math.round(weekly.seconds))
+      : existing?.weekKey === weekKey
+        ? numberValue(existing?.weeklySeconds, 0)
+        : 0;
 
     transaction.set(boardRef, {
       uid: user.uid,
       displayName: name,
       currentStreak,
       totalDays,
+      weeklySeconds,
+      weekKey,
       visible: optIn,
       ...quota,
       updatedAt: serverTimestamp(),

@@ -126,13 +126,15 @@ service cloud.firestore {
 
     function leaderboardShape() {
       return request.resource.data.keys().hasOnly([
-        'uid', 'displayName', 'currentStreak', 'totalDays', 'visible',
-        'writes', 'windowStart', 'updatedAt'
+        'uid', 'displayName', 'currentStreak', 'totalDays', 'weeklySeconds',
+        'weekKey', 'visible', 'writes', 'windowStart', 'updatedAt'
       ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 40
         && request.resource.data.currentStreak is int && request.resource.data.currentStreak >= 0 && request.resource.data.currentStreak <= 10000
         && request.resource.data.totalDays is int && request.resource.data.totalDays >= 0 && request.resource.data.totalDays <= 10000
+        && request.resource.data.weeklySeconds is int && request.resource.data.weeklySeconds >= 0 && request.resource.data.weeklySeconds <= 100000000
+        && request.resource.data.weekKey is string && request.resource.data.weekKey.size() == 10
         && request.resource.data.visible is bool
         && request.resource.data.writes is int && request.resource.data.writes >= 1 && request.resource.data.writes <= 20
         && request.resource.data.windowStart is timestamp
@@ -156,6 +158,65 @@ service cloud.firestore {
         && request.resource.data.plannedSeconds is int && request.resource.data.plannedSeconds >= 0 && request.resource.data.plannedSeconds <= 86400
         && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
         && request.resource.data.completed is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function activeTimerShape() {
+      return request.resource.data.keys().hasOnly([
+        'mode', 'subjectId', 'subjectName', 'paper', 'notes',
+        'plannedSeconds', 'referenceSeconds', 'startedAt', 'runningSince',
+        'accumulatedMs', 'status', 'updatedAt'
+      ])
+        && request.resource.data.mode in ['countdown', 'stopwatch']
+        && request.resource.data.subjectId is string && request.resource.data.subjectId.size() > 0 && request.resource.data.subjectId.size() <= 100
+        && request.resource.data.subjectName is string && request.resource.data.subjectName.size() > 0 && request.resource.data.subjectName.size() <= 100
+        && request.resource.data.paper is string && request.resource.data.paper.size() <= 120
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
+        && request.resource.data.plannedSeconds is int && request.resource.data.plannedSeconds >= 0 && request.resource.data.plannedSeconds <= 86400
+        && request.resource.data.referenceSeconds is int && request.resource.data.referenceSeconds >= 0 && request.resource.data.referenceSeconds <= 86400
+        && request.resource.data.startedAt is timestamp
+        && (request.resource.data.runningSince == null || request.resource.data.runningSince is timestamp)
+        && request.resource.data.accumulatedMs is int && request.resource.data.accumulatedMs >= 0 && request.resource.data.accumulatedMs <= 86400000
+        && request.resource.data.status in ['running', 'paused']
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function winnerCardShape() {
+      return request.resource.data.keys().hasOnly([
+        'weekKey', 'uid', 'displayName', 'durationSeconds', 'quote',
+        'imagePath', 'imageStatus', 'settlementDate', 'archived', 'updatedAt'
+      ])
+        && isDate(request.resource.data.weekKey)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 40
+        && request.resource.data.durationSeconds is int && request.resource.data.durationSeconds >= 0 && request.resource.data.durationSeconds <= 100000000
+        && request.resource.data.quote is string && request.resource.data.quote.size() <= 80
+        && request.resource.data.imagePath is string && request.resource.data.imagePath.size() <= 500
+        && request.resource.data.imageStatus in ['none', 'pending', 'rejected']
+        && isDate(request.resource.data.settlementDate)
+        && request.resource.data.archived is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function winnerReviewShape() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageStatus', 'updatedAt'])
+        && request.resource.data.imageStatus in ['approved', 'rejected']
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.weekKey == resource.data.weekKey
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function winnerApprovedTextShape() {
+      return resource.data.imageStatus == 'approved'
+        && request.resource.data.imageStatus == 'approved'
+        && request.resource.data.imagePath == resource.data.imagePath
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'quote', 'displayName', 'durationSeconds', 'updatedAt'
+        ])
+        && request.resource.data.quote is string && request.resource.data.quote.size() <= 80
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 40
         && request.resource.data.updatedAt == request.time;
     }
 
@@ -304,6 +365,13 @@ service cloud.firestore {
         allow delete: if isSelf(uid);
       }
 
+      // Persistent active timer: one private document per user.
+      match /timerState/{docId} {
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && activeTimerShape();
+        allow delete: if isSelf(uid);
+      }
+
       match /calendarConnections/{connectionId} {
         allow read, write: if false;
       }
@@ -325,6 +393,24 @@ service cloud.firestore {
         && leaderboardShape()
         && leaderboardBudgetUpdate();
       allow delete: if isSelf(uid);
+    }
+
+    // Weekly encouragement card. Owner writes their own card; only an admin can
+    // move an image from pending to approved/rejected. Public reads are limited
+    // to signed-in users, matching the leaderboard audience.
+    match /leaderboardWinner/{cardId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && winnerCardShape()
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isAdmin()
+        ? winnerReviewShape()
+        : (signedIn()
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.weekKey == resource.data.weekKey
+          && (winnerCardShape() || winnerApprovedTextShape()));
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // System timetable: public read, admin write only.

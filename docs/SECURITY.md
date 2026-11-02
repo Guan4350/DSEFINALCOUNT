@@ -24,11 +24,22 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `users/{uid}/meta/settings` | own | own, validated settings shape incl. `clockOffsetMs` and `selectedSubjectIds` |
 | `users/{uid}/reflections/{date}` | own | own, ≤5,000 chars |
 | `users/{uid}/timerSessions/{id}` | own | own, validated timer shape; delete allowed |
+| `users/{uid}/timerState/current` | own | own, validated active-timer shape; delete allowed |
 | `leaderboard/{uid}` | signed-in and (own or `visible == true`) | own only, validated shape, 20 metered writes/hour |
+| `leaderboardWinner/{weekKey}__{uid}` | signed-in | owner writes own card with `imageStatus` pending/none/rejected; **admin only** approves/rejects; owner/admin delete |
 | `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
 | legacy Worker paths | deny | deny |
 | everything else | deny | deny |
+
+### Active timer and weekly winner
+
+- `timerState/current` stores only the user's own start/pause timestamps and timer metadata; it is used to recover after refresh/backgrounding. The client computes elapsed time from server timestamps plus a small offset, not from `setInterval` accumulation.
+- `timerSessions` remain create/read/update/delete for the owner only; weekly totals are copied to the visible `leaderboard` document, never from another user's private sessions.
+- `leaderboardWinner` is readable by signed-in users. An owner may create/update only their own card and may never set `imageStatus: approved`; `winnerReviewShape()` restricts admin updates to `imageStatus` + `updatedAt`.
+- Weekly ranking uses the existing opt-in leaderboard visibility; a user who has not opted in is not counted.
+- Images are uploaded to Storage at `winnerCards/{uid}/{weekKey}/{file}` by the owner only (≤5 MB, `image/*`). Pending/rejected images are not rendered by the UI; only `approved` paths are displayed. Deploy [../storage.rules](../storage.rules) alongside the Firestore rules.
+- Quotes are limited to 80 characters and passed through a local sensitive-word filter. No AI image moderation is used.
 
 ### Check-in proof
 
@@ -62,7 +73,7 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 - No email, photo, subjects, task text, reflections, images or study minutes.
 - Hidden documents are readable by their owner only; other signed-in users cannot read them.
 - The poll stops when the page is hidden or the leaderboard view unmounts; no realtime listener is kept open.
-- Images never leave the device.
+- Mistake-photo images never leave the device. Only an explicit weekly-winner-card image is uploaded to Storage, and only after owner submission + admin approval is it rendered.
 
 ## 4. Admin model
 
@@ -70,11 +81,13 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 - Rules allow reading your own admin marker only; no client can create/update/delete an admin marker.
 - `systemExams/{year}` write requires `exists(admins/{uid})` and the document shape (`timezone == 'Asia/Hong_Kong'`, non-empty `events`, bounded `referenceUrl`).
 - The app shows the admin section only after reading the marker.
+- Admins can open **管理後台**, preview pending winner images, approve/reject them, and delete an entire card. Owners cannot set `approved` themselves.
+- Admin approval only changes `imageStatus`/`updatedAt`; the panel is the only UI that exposes pending images.
 - Never put an admin UID or service-account credential in a `VITE_*` variable as an authorization mechanism.
 
 ## 5. Secrets
 
-Mode B needs no service account, no private key, no OAuth client secret and no Worker secret.
+Mode B needs no service account, no private key and no OAuth client secret. Firebase Storage is used only for approved weekly-winner-card images and is protected by [../storage.rules](../storage.rules).
 
 Never commit:
 
@@ -94,7 +107,7 @@ Free daily limits (confirm in Firebase Console; they can change):
 - 20k document writes
 - 1 GiB stored
 
-No Blaze, Cloud Functions, Firebase Storage, cron or realtime listeners are configured.
+No Blaze, Cloud Functions, cron or realtime listeners are configured. Firebase Storage is used only for weekly-winner card images (5 MB cap).
 
 Rough behaviour:
 

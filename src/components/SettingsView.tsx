@@ -5,6 +5,7 @@ import { useApp } from '../contexts/AppContext';
 import { DSE_2025_EVENTS, type SystemExamEvent } from '../data/dse2025';
 import { clampOffset, formatHKClock, formatOffset, offsetFromReference, useSecondTick } from '../lib/clock';
 import { isISODate } from '../lib/date';
+import { signInWithEmail, signUpWithEmail } from '../lib/firebase';
 import { RECURSO_COUNTDOWN_URL } from '../lib/systemExams';
 import { UsagePanel } from './UsagePanel';
 import { Icon } from './Icons';
@@ -128,6 +129,10 @@ export function SettingsView() {
   const [referenceTime, setReferenceTime] = useState(() => formatHKClock(Date.now() + clockOffsetMs));
   const selectedSubjectIds = data.settings.selectedSubjectIds ?? data.subjects.map((subject) => subject.id);
   const selectedSubjectSet = new Set(selectedSubjectIds);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [adminYear, setAdminYear] = useState(data.settings.dseYear);
   const [adminJson, setAdminJson] = useState('');
@@ -138,6 +143,56 @@ export function SettingsView() {
     if (!displayName.trim()) return;
     await updateProfile({ displayName: displayName.trim().slice(0, 40) });
     showToast('名稱已更新。', 'success');
+  };
+
+  const submitEmailAuth = async (kind: 'signin' | 'signup') => {
+    if (!cloudEnabled) {
+      showToast('Email 登入需要 Firebase Mode B。', 'error');
+      return;
+    }
+    const cleanEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      showToast('請輸入有效 email。', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('密碼最少 6 個字元。', 'error');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      if (kind === 'signup') {
+        const name = authName.trim().slice(0, 40) || cleanEmail.split('@')[0];
+        await signUpWithEmail(cleanEmail, password, name);
+        await updateProfile({ displayName: name });
+        showToast('帳號已建立並登入。', 'success');
+      } else {
+        await signInWithEmail(cleanEmail, password);
+        showToast('已用 Email 登入。', 'success');
+      }
+      setPassword('');
+    } catch (error) {
+      const code = (error as { code?: string }).code || '';
+      const message =
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
+          ? 'Email 或密碼不正確。'
+          : code === 'auth/email-already-in-use'
+            ? '此 email 已註冊，請直接登入。'
+            : code === 'auth/weak-password'
+              ? '密碼太弱，請最少 6 個字元。'
+              : code === 'auth/too-many-requests'
+                ? '嘗試次數太多，請稍後再試。'
+                : code === 'auth/operation-not-allowed'
+                  ? 'Firebase 未啟用 Email/Password 登入，請在 Authentication 開啟。'
+                  : code === 'auth/invalid-email'
+                    ? 'Email 格式不正確。'
+                    : error instanceof Error
+                      ? error.message
+                      : String(error);
+      showToast(`登入失敗：${message}`, 'error');
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   const submitSubject = () => {
@@ -284,12 +339,68 @@ export function SettingsView() {
               </div>
               {user ? (
                 <button type="button" className="btn btn-sm" onClick={() => void signOut()}>登出</button>
-              ) : (
-                <button type="button" className="btn btn-sm btn-primary" onClick={() => void signIn()} disabled={!cloudEnabled}>
-                  Google 登入
-                </button>
-              )}
+              ) : null}
             </div>
+            {!user ? (
+              <div className="setting-row col">
+                <div style={{ width: '100%' }}>
+                  <div className="setting-label">Email 登入 / 建立帳號</div>
+                  <div className="setting-copy">
+                    {cloudEnabled
+                      ? '可使用 Firebase Email/Password 登入；Google 登入仍保留。'
+                      : 'Mode A 沒有 Firebase，Email 登入需要在 .env.local 設定六個 Firebase 值。'}
+                  </div>
+                </div>
+                <div className="form-grid two" style={{ width: '100%' }}>
+                  <label className="field">
+                    <span className="label">Email</span>
+                    <input
+                      className="input"
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      disabled={!cloudEnabled || authBusy}
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="label">密碼</span>
+                    <input
+                      className="input"
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      autoComplete="current-password"
+                      placeholder="最少 6 個字元"
+                      disabled={!cloudEnabled || authBusy}
+                    />
+                  </label>
+                </div>
+                <label className="field" style={{ width: '100%' }}>
+                  <span className="label">顯示名稱（建立帳號用，可選）</span>
+                  <input
+                    className="input"
+                    value={authName}
+                    onChange={(event) => setAuthName(event.target.value)}
+                    maxLength={40}
+                    placeholder="例：Candidate"
+                    disabled={!cloudEnabled || authBusy}
+                  />
+                </label>
+                <div className="row" style={{ width: '100%', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => void submitEmailAuth('signin')} disabled={!cloudEnabled || authBusy}>
+                    {authBusy ? '處理中…' : 'Email 登入'}
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => void submitEmailAuth('signup')} disabled={!cloudEnabled || authBusy}>
+                    建立帳號
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => void signIn()} disabled={!cloudEnabled || authBusy}>
+                    Google 登入
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="card settings-section">

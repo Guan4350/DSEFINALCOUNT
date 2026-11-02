@@ -1,0 +1,416 @@
+[
+  {
+    "subject": "視覺藝術",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1, 2",
+    "title": "DSE 視覺藝術 Paper 1, 2",
+    "startTime": "08:30",
+    "endTime": "12:30",
+    "minutes": 240
+  },
+  {
+    "subject": "中國語文",
+    "subjectCategory": "CHI",
+    "paper": "Paper 1",
+    "title": "DSE 中國語文 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:00",
+    "minutes": 90
+  },
+  {
+    "subject": "中國語文",
+    "subjectCategory": "CHI",
+    "paper": "Paper 2",
+    "title": "DSE 中國語文 Paper 2",
+    "startTime": "10:45",
+    "endTime": "13:00",
+    "minutes": 135
+  },
+  {
+    "subject": "英國語文",
+    "subjectCategory": "ENG",
+    "paper": "Paper 1",
+    "title": "DSE 英國語文 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:00",
+    "minutes": 90
+  },
+  {
+    "subject": "英國語文",
+    "subjectCategory": "ENG",
+    "paper": "Paper 2",
+    "title": "DSE 英國語文 Paper 2",
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "minutes": 120
+  },
+  {
+    "subject": "英國語文",
+    "subjectCategory": "ENG",
+    "paper": "Paper 3（聆聽及綜合能力）",
+    "title": "DSE 英國語文 Paper 3（聆聽及綜合能力）",
+    "startTime": "09:15",
+    "endTime": "12:10",
+    "minutes": 175
+  },
+  {
+    "subject": "數學",
+    "subjectCategory": "MATH",
+    "paper": "必修部分 Paper 1",
+    "title": "DSE 數學 必修部分 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:45",
+    "minutes": 135
+  },
+  {
+    "subject": "數學",
+    "subjectCategory": "MATH",
+    "paper": "必修部分 Paper 2",
+    "title": "DSE 數學 必修部分 Paper 2",
+    "startTime": "11:30",
+    "endTime": "12:45",
+    "minutes": 75
+  },
+  {
+    "subject": "公民與社會發展",
+    "subjectCategory": "CSD",
+    "paper": "Paper 1",
+    "title": "DSE 公民與社會發展 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "倫理與宗教",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 倫理與宗教 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:15",
+    "minutes": 105
+  },
+  {
+    "subject": "倫理與宗教",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 倫理與宗教 Paper 2",
+    "startTime": "11:00",
+    "endTime": "12:45",
+    "minutes": 105
+  },
+  {
+    "subject": "化學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 化學 Paper 1",
+    "startTime": "08:30",
+    "endTime": "11:00",
+    "minutes": 150
+  },
+  {
+    "subject": "化學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 化學 Paper 2",
+    "startTime": "11:45",
+    "endTime": "12:45",
+    "minutes": 60
+  },
+  {
+    "subject": "健康管理與社會關懷",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 健康管理與社會關懷 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "健康管理與社會關懷",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 健康管理與社會關懷 Paper 2",
+    "startTime": "11:15",
+    "endTime": "13:00",
+    "minutes": 105
+  },
+  {
+    "subject": "資訊及通訊科技",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 資訊及通訊科技 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "資訊及通訊科技",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 資訊及通訊科技 Paper 2",
+    "startTime": "11:15",
+    "endTime": "12:45",
+    "minutes": 90
+  },
+  {
+    "subject": "生物",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 生物 Paper 1",
+    "startTime": "08:30",
+    "endTime": "11:00",
+    "minutes": 150
+  },
+  {
+    "subject": "生物",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 生物 Paper 2",
+    "startTime": "11:45",
+    "endTime": "12:45",
+    "minutes": 60
+  },
+  {
+    "subject": "企業、會計與財務概論",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 企業、會計與財務概論 Paper 1",
+    "startTime": "08:30",
+    "endTime": "09:30",
+    "minutes": 60
+  },
+  {
+    "subject": "企業、會計與財務概論",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 企業、會計與財務概論 Paper 2",
+    "startTime": "10:15",
+    "endTime": "12:45",
+    "minutes": 150
+  },
+  {
+    "subject": "物理",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 物理 Paper 1",
+    "startTime": "08:30",
+    "endTime": "11:00",
+    "minutes": 150
+  },
+  {
+    "subject": "物理",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 物理 Paper 2",
+    "startTime": "11:45",
+    "endTime": "12:45",
+    "minutes": 60
+  },
+  {
+    "subject": "設計與應用科技",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 設計與應用科技 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "設計與應用科技",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 設計與應用科技 Paper 2",
+    "startTime": "11:15",
+    "endTime": "13:15",
+    "minutes": 120
+  },
+  {
+    "subject": "英語文學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 英語文學 Paper 1",
+    "startTime": "08:30",
+    "endTime": "11:30",
+    "minutes": 180
+  },
+  {
+    "subject": "英語文學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 英語文學 Paper 2",
+    "startTime": "13:30",
+    "endTime": "15:30",
+    "minutes": 120
+  },
+  {
+    "subject": "中國文學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 中國文學 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "中國文學",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 中國文學 Paper 2",
+    "startTime": "11:15",
+    "endTime": "13:15",
+    "minutes": 120
+  },
+  {
+    "subject": "科技與生活",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 科技與生活 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:00",
+    "minutes": 90
+  },
+  {
+    "subject": "科技與生活",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 科技與生活 Paper 2",
+    "startTime": "10:45",
+    "endTime": "12:45",
+    "minutes": 120
+  },
+  {
+    "subject": "體育",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 體育 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:45",
+    "minutes": 135
+  },
+  {
+    "subject": "體育",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 體育 Paper 2",
+    "startTime": "11:30",
+    "endTime": "12:45",
+    "minutes": 75
+  },
+  {
+    "subject": "音樂",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1A",
+    "title": "DSE 音樂 Paper 1A",
+    "startTime": "08:30",
+    "endTime": "10:00",
+    "minutes": 90
+  },
+  {
+    "subject": "音樂",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1B",
+    "title": "DSE 音樂 Paper 1B",
+    "startTime": "10:45",
+    "endTime": "12:15",
+    "minutes": 90
+  },
+  {
+    "subject": "地理",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 地理 Paper 1",
+    "startTime": "08:30",
+    "endTime": "11:15",
+    "minutes": 165
+  },
+  {
+    "subject": "地理",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 地理 Paper 2",
+    "startTime": "12:00",
+    "endTime": "13:15",
+    "minutes": 75
+  },
+  {
+    "subject": "旅遊與款待",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 旅遊與款待 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:00",
+    "minutes": 90
+  },
+  {
+    "subject": "旅遊與款待",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 旅遊與款待 Paper 2",
+    "startTime": "10:45",
+    "endTime": "12:30",
+    "minutes": 105
+  },
+  {
+    "subject": "歷史",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 歷史 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:30",
+    "minutes": 120
+  },
+  {
+    "subject": "歷史",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 歷史 Paper 2",
+    "startTime": "11:15",
+    "endTime": "12:45",
+    "minutes": 90
+  },
+  {
+    "subject": "數學",
+    "subjectCategory": "MATH",
+    "paper": "延伸部分 M1 / M2",
+    "title": "DSE 數學 延伸部分 M1 / M2",
+    "startTime": "08:30",
+    "endTime": "11:00",
+    "minutes": 150
+  },
+  {
+    "subject": "中國歷史",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 中國歷史 Paper 1",
+    "startTime": "08:30",
+    "endTime": "10:45",
+    "minutes": 135
+  },
+  {
+    "subject": "中國歷史",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 中國歷史 Paper 2",
+    "startTime": "11:30",
+    "endTime": "12:50",
+    "minutes": 80
+  },
+  {
+    "subject": "經濟",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 1",
+    "title": "DSE 經濟 Paper 1",
+    "startTime": "08:30",
+    "endTime": "09:30",
+    "minutes": 60
+  },
+  {
+    "subject": "經濟",
+    "subjectCategory": "ELECTIVE",
+    "paper": "Paper 2",
+    "title": "DSE 經濟 Paper 2",
+    "startTime": "10:15",
+    "endTime": "12:45",
+    "minutes": 150
+  }
+]

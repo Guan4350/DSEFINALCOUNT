@@ -74,9 +74,18 @@ users/{uid}/timerSessions/{sessionId}
   date, subjectId, subjectName, paper, mode, startedAt, endedAt,
   durationSeconds, plannedSeconds, notes, completed, updatedAt
 
+users/{uid}/timerState/current
+  mode, subjectId, subjectName, paper, notes, plannedSeconds,
+  referenceSeconds, startedAt(server), runningSince(server|null),
+  accumulatedMs, status, updatedAt(server)
+
 leaderboard/{uid}
-  uid, displayName, currentStreak, totalDays, visible,
-  writes, windowStart, updatedAt
+  uid, displayName, currentStreak, totalDays, weeklySeconds, weekKey,
+  visible, writes, windowStart, updatedAt
+
+leaderboardWinner/{weekKey}__{uid}
+  weekKey, uid, displayName, durationSeconds, quote,
+  imagePath, imageStatus, settlementDate, archived, updatedAt
 
 systemExams/{year}
   year, source, label, events[], timezone, referenceUrl, updatedAt
@@ -147,14 +156,22 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 ### Focus timer and study statistics
 
-`TimerView` keeps a single active timer in component state. Starting it opens a portal-based full-screen focus stage (subject/paper header, oversized HH:MM:SS clock, start/remaining/end progress bar, bottom controls). The overlay uses paper-white in light mode and near-black in dark mode, with the existing gold accent; it is not a separate route and can be exited without losing the running timer.
+`TimerView` keeps a single active timer in component state. Starting it opens a portal-based full-screen focus stage (subject/paper header, oversized HH:MM:SS clock, start/remaining/end progress bar, Newton's-cradle progress accent, bottom controls). The overlay uses the Octavarium sky/grass/silver palette at low opacity in light mode and a near-black `#1C242C` surface in dark mode; it is not a separate route and can be exited without losing the running timer.
 
-- **Countdown**: planned seconds from a paper preset or a custom 1–600 minute input; elapsed time is derived from `Date.now()` timestamps, not decremented by the interval, so pausing/resuming and background-tab throttling stay accurate. At zero it rings a Web Audio bell, marks itself complete and saves.
-- **Stopwatch**: counts elapsed milliseconds until the user presses **標記完成**.
-- **Pause / resume** accumulates `accumulatedMs` and sets `runningSince` to null or a fresh timestamp. **Abandon** discards the run without writing anything.
+- **Persistence**: start/pause/resume write `users/{uid}/timerState/current` with Firestore `serverTimestamp()` values. On reload/background return, the client reads that document and reconstructs elapsed time from the server timestamps plus a small measured offset; `setInterval` only triggers rendering. Mode A uses an equivalent localStorage record.
+- **Countdown**: planned seconds from the built-in `src/data/dsePapers.json` library or a custom 1–600 minute input; elapsed time is derived from absolute timestamps, not decremented. It changes colour at 15 and 5 minutes, rings a Web Audio bell at zero, marks itself complete and saves.
+- **Stopwatch**: counts elapsed time until **標記完成**; its progress bar uses the selected paper duration as a visual reference.
+- **Pause / resume** accumulates `accumulatedMs` and sets `runningSince` to null or a fresh server timestamp. **Abandon** discards the run without writing anything. Wake Lock is requested while running (re-acquired on visibility) and released on pause/finish.
 - Completed runs become `users/{uid}/timerSessions/{id}` with subject, paper, start/end, duration, mode, notes and `completed`. Mode A writes the same object to `localStorage`; Mode B writes locally first, then Firestore, so a network failure never loses the local record.
-- `src/lib/timer.ts` derives official paper durations from the same `DSE_2025_EVENTS` used by the calendar, so the timer and countdown cannot disagree.
+- `src/lib/timer.ts` reads the built-in JSON paper durations; the user can override the duration for a run.
 - `TimerStats` filters completed sessions to the last 7 or 30 days, renders a subject-share donut and a multi-subject daily-minutes line chart with inline SVG, and exports the filtered sessions as UTF-8 CSV. No chart dependency is added.
+
+### Weekly encouragement card
+
+- `leaderboard.weeklySeconds` + `weekKey` (Monday date) are updated after every completed timer, but only visible/opt-in leaderboard entries are ranked.
+- `leaderboardWinner/{weekKey}__{uid}` stores each candidate card. The current top user can edit their own quote/image; an old top card remains in the collection and is shown in the history wall when the top uid changes.
+- Images upload to `winnerCards/{uid}/{weekKey}/...` in Storage. New images start `pending`; only an admin can set `approved`/`rejected`, and only approved paths are rendered. Quotes are capped at 80 characters and filtered locally for sensitive words. `poster.ts` draws a PNG share card on canvas.
+
 
 
 ## 7. System DSE timetable
@@ -183,13 +200,13 @@ The media/PDF/image previews still use neutral grays from variables; no componen
 
 ## 9. Images
 
-Images are compressed to WebP (max 1280 px, quality 0.72), then stored as data URLs in localStorage. Caps:
+Mistake-photo images are compressed to WebP (max 1280 px, quality 0.72), then stored as data URLs in localStorage. Caps:
 
 - 8 images/day
 - soft cap around 3.8 MB of image data
 - 4.6 MB total local data guard
 
-No Firebase Storage is initialised. Images are excluded from cloud sync by design.
+No Firebase Storage is used for mistake photos; they are excluded from cloud sync. The only Storage use is the optional weekly-winner-card image (`storage.rules`), which must pass admin approval before rendering.
 
 ## 10. Local data import
 
@@ -211,7 +228,7 @@ The `worker/` folder is an earlier prototype for CalDAV / Google Calendar. It is
 ## 12. Non-goals
 
 - No public study-detail leaderboard.
-- No Firebase Storage images.
+- No Firebase Storage for mistake photos (weekly-winner card images are the one exception).
 - No paid backend or Blaze.
 - No task/event/leaderboard realtime listeners.
 - No CalDAV/Worker in Mode B.

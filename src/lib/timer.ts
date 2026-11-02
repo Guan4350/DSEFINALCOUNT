@@ -1,4 +1,5 @@
-import { DSE_2025_EVENTS } from '../data/dse2025';
+import paperRows from '../data/dsePapers.json';
+import type { SystemExamEvent } from '../data/dse2025';
 import type { Subject, TimerMode } from '../types';
 import { resolveSystemSubjectId } from './systemExams';
 
@@ -8,34 +9,54 @@ export interface PaperPreset {
   subjectName: string;
   paper: string;
   title: string;
+  startTime: string;
+  endTime: string;
   minutes: number;
 }
 
-function minutesBetween(start?: string, end?: string): number {
-  if (!start || !end) return 0;
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  return eh * 60 + em - (sh * 60 + sm);
+interface PaperRow {
+  subject: string;
+  subjectCategory: SystemExamEvent['subjectCategory'];
+  paper: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  minutes: number;
 }
 
+const OFFICIAL_PAPERS = paperRows as PaperRow[];
+
 /**
- * Official 2025 written-paper durations, derived from the same HKEAA base
- * timetable that drives the calendar. Keeping one source avoids a paper timer
- * that disagrees with the exam countdown.
+ * Built-in official paper durations, transcribed into dsePapers.json from the
+ * HKEAA timetable used by the calendar. A user can override the duration when
+ * starting a countdown. The JSON is intentionally independent of calendar
+ * events so the timer library is inspectable and auditable.
  */
 export function paperPresets(subjects: Subject[]): PaperPreset[] {
   const seen = new Set<string>();
-  return DSE_2025_EVENTS.map((event) => {
-    const minutes = minutesBetween(event.startTime, event.endTime);
-    const subjectId = resolveSystemSubjectId(event, subjects);
-    const paper = event.paper || 'Paper';
-    return {
-      key: `${event.subject}::${paper}`,
-      subjectId,
-      subjectName: event.subject,
+  return OFFICIAL_PAPERS.map((row) => {
+    const paper = row.paper || 'Paper';
+    const event: SystemExamEvent = {
+      id: `paper-${row.subject}-${paper}`,
+      year: 2025,
+      date: '',
+      startTime: row.startTime,
+      endTime: row.endTime,
+      subject: row.subject,
+      subjectCategory: row.subjectCategory,
       paper,
-      title: event.title,
-      minutes,
+      title: row.title,
+      source: 'official',
+    };
+    return {
+      key: `${row.subject}::${paper}`,
+      subjectId: resolveSystemSubjectId(event, subjects),
+      subjectName: row.subject,
+      paper,
+      title: row.title,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      minutes: row.minutes,
     };
   })
     .filter((preset) => preset.subjectId && preset.minutes > 0)

@@ -17,7 +17,9 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
 - **High-precision countdown** — the dashboard shows the nearest selected exam as **X days HH:MM:SS**, refreshed every second against an explicitly Hong Kong (UTC+8) timestamp. A settings panel compares the device clock with time.is / HKEAA and stores a bounded ±5-minute correction.
 - **DSE subject focus** — opt in to the subjects you actually sit (core subjects and individual electives); the hero countdown filters to those subjects only, with a horizontally scrollable switcher when several exams are close. Selection syncs to Firestore in Mode B and localStorage in Mode A.
-- **Per-paper focus timer + study statistics** — a full-screen focus stage with subject/paper title, a huge HH:MM:SS clock, start/remaining/end progress bar and bottom controls; countdown mock exams with an end-of-time bell or use a stopwatch for study sessions. Official 2025 paper durations are preselected (custom durations supported), with pause / resume / abandon / complete. Completed sessions sync to a private `timerSessions` collection and feed weekly / monthly subject-share and trend charts plus CSV export.
+- **Per-paper focus timer + study statistics** — a full-screen focus stage with subject/paper title, a huge HH:MM:SS clock, start/remaining/end progress bar and bottom controls; countdown mock exams with 15/5-minute colour warnings and an end-of-time bell, or use a stopwatch for study sessions. Official paper durations come from a built-in JSON library (custom durations supported). Active state is mirrored to Firestore with server timestamps and restored after refresh/backgrounding; Wake Lock and native fullscreen are used where supported. Completed sessions sync to a private `timerSessions` collection and feed weekly / monthly subject-share and trend charts plus CSV export.
+- **Weekly encouragement card** — the opt-in weekly study-time leader can add a quote and image to a card shown above the weekly board; new week leaders leave previous cards in the history wall. Images start as **pending**, are only rendered after an admin approves them, and can be exported as a shareable PNG poster. Quotes are length-limited and filtered locally for sensitive words.
+- **Google + Email login** — Google sign-in remains the default; Firebase Email/Password sign-in and account creation are available from Settings. Both providers use the same per-uid Firestore isolation.
 - **Layered DSE countdowns** — first paper, every subject's next paper, Mock, school exam and SBA.
 - **2025 HKEAA timetable base** — finalised written timetable transcribed from the [HKEAA circular](https://www.hkeaa.edu.hk/DocLibrary/Circulars/HKDSE/HKDSE_Finalised_Examination_Timetable_for_2025_Examination.pdf); users can hide system events but cannot edit or delete them. The default DSE year is the next exam year that has not passed (e.g. October 2026 defaults to 2027); later years shift the 2025 dates and are labelled **預估日期，一切以 HKEAA 正式公告為準**.
 - **Tasks** — subject label, due date, completion, notes, and idempotent next-day rollover.
@@ -29,6 +31,7 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 - **Daily reflection** — debounced autosave, synced in Mode B.
 - **Opt-in leaderboard** — only display name, current streak and total days; default hidden; polled every 60 seconds while the page is visible, with a manual refresh button and no persistent realtime listener.
 - **Admin timetable updates** — `admins/{uid}` accounts can replace `systemExams/{year}` with validated UTC+8 events (manual JSON editor + current-timetable preview); normal users can only read and locally hide entries.
+- **Admin moderation page** — `admins/{uid}` also gets a 管理後台 page to preview pending weekly-winner images, approve/reject them, and delete a card. Pending images are never rendered on the public card.
 
 ## Quick start
 
@@ -71,7 +74,21 @@ Firestore location must be **asia-east2 (Hong Kong)**. Choose it when creating t
 
 Never put a service-account JSON, Apple app password, OAuth client secret or any other secret in a `VITE_*` variable. Mode B does not need any of them.
 
-After updating from an earlier build, republish [firestore.rules](firestore.rules): the settings document now includes `clockOffsetMs` and `selectedSubjectIds`. Without the republish, Mode B rejects settings writes with `permission-denied`.
+After updating from an earlier build, republish [firestore.rules](firestore.rules): settings now includes `clockOffsetMs` / `selectedSubjectIds`, `leaderboard` includes weekly fields, and new `timerState` / `timerSessions` / `leaderboardWinner` rules are required. Also enable **Firebase Storage** and publish [storage.rules](storage.rules) for the weekly-card images.
+
+### Authentication
+
+Enable both providers in **Authentication → Sign-in method**:
+
+- **Google** (existing)
+- **Email/Password** (new)
+
+The Settings identity card exposes Email sign-in/account creation and keeps the Google button. No other providers are required.
+
+### Weekly winner card / Storage
+
+Weekly totals use the existing opt-in visibility setting: only users who have opted in to the leaderboard are counted. The weekly leader can edit their own card; only an admin can approve/reject an uploaded image. Enable **Storage** in Firebase Console and publish [storage.rules](storage.rules). Images are uploaded to `winnerCards/{uid}/{weekKey}/...`; the Firestore `imageStatus` field is the display gate.
+
 
 ## GitHub Pages deployment
 
@@ -125,9 +142,20 @@ users/{uid}/timerSessions/{sessionId}
   date, subjectId, subjectName, paper, mode, startedAt, endedAt,
   durationSeconds, plannedSeconds, notes, completed, updatedAt
 
+users/{uid}/timerState/current
+  mode, subjectId, subjectName, paper, notes, plannedSeconds,
+  referenceSeconds, startedAt(server), runningSince(server|null),
+  accumulatedMs, status, updatedAt(server)   (active timer recovery)
+
 leaderboard/{uid}
-  uid, displayName, currentStreak, totalDays, visible,
-  writes, windowStart, updatedAt   (writes/windowStart = one-hour rate budget)
+  uid, displayName, currentStreak, totalDays, weeklySeconds, weekKey,
+  visible, writes, windowStart, updatedAt
+  (writes/windowStart = one-hour rate budget)
+
+leaderboardWinner/{weekKey}__{uid}
+  weekKey, uid, displayName, durationSeconds, quote,
+  imagePath, imageStatus(none|pending|approved|rejected),
+  settlementDate, archived, updatedAt
 
 systemExams/{year}
   year, source, label, events[],
@@ -171,6 +199,7 @@ src/lib/
   usage.ts             Rough front-end quota estimate
 src/styles/            Tailwind theme variables + hand-authored layout CSS
 firestore.rules        Paste directly into Firebase Console
+storage.rules          Weekly-winner image rules (Firebase Storage)
 firestore.indexes.json
 docs/                  Deployment, security, architecture
 worker/                Deferred Mode C prototype; not used by Mode B UI
@@ -200,7 +229,7 @@ Real Google login, Firestore writes and leaderboard updates require your Firebas
 
 - **Mode B does not include CalDAV / Google Calendar / Cloudflare Worker.** That is deferred Mode C. The `worker/` directory is an inactive prototype and is not referenced by the Mode B UI.
 - **ICS is a format, not a sync protocol.** Import/export is a snapshot; read-only subscriptions are one-way.
-- **Images never go to Firebase Storage** in this version; localStorage is roughly 5 MB. Export a JSON backup before clearing browser data.
+- **Mistake-photo images never go to Firebase Storage**; localStorage is roughly 5 MB. Only an optional weekly-winner card image is uploaded to Storage (≤5 MB) and it must be approved by an admin before display.
 - **The DSE database is a study aid.** 2025 is the transcribed official base; later years are estimates and must be checked against HKEAA. The app does not claim official status for shifted dates.
 - **Rules cannot compute a streak.** The client computes and writes its own public streak; rules constrain ownership, field shape, one check-in per day and a 20-per-hour public metric write budget, not mathematical correctness.
 - **Admin access is manual.** Create `admins/{your-auth-uid}` in Firestore Console; never create it from the public client.

@@ -3,6 +3,8 @@ import type { LeaderboardEntry } from '../types';
 import { LEADERBOARD_METRIC_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { fetchLeaderboardOnce, LEADERBOARD_POLL_MS } from '../lib/cloud';
+import { currentWeekKey } from '../lib/week';
+import { WeeklyWinnerCard } from './WeeklyWinnerCard';
 import { Icon } from './Icons';
 
 function initials(name: string): string {
@@ -144,7 +146,7 @@ export function LeaderboardView() {
           <div className="eyebrow">Community / gentle accountability</div>
           <h1 className="page-title">同學排行榜</h1>
           <p className="page-subtitle">
-            只比較連續打卡 streak。唔會公開科目、任務、筆記、圖片或溫書時數；預設不公開，可以隨時退出。
+            只比較連續打卡 streak；週榜榜首卡片會額外公開每週溫書總時長與你自願提交的格言。唔會公開科目、任務、筆記或錯題圖片。所有公開預設關閉。
           </p>
         </div>
         <div className="row">
@@ -152,6 +154,15 @@ export function LeaderboardView() {
           <span className="chip">{entries.length} 位</span>
         </div>
       </div>
+
+      {cloudEnabled && user ? (
+        <WeeklyWinnerCard
+          entries={entries}
+          currentUser={user}
+          weekKey={currentWeekKey()}
+          refreshKey={lastUpdated?.getTime() || 0}
+        />
+      ) : null}
 
       {!cloudEnabled ? (
         <>
