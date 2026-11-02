@@ -77,7 +77,15 @@ function leaderboardQuota(
     : { writes: 1, windowStart: serverTimestamp() };
 }
 
-export async function isAdminUser(uid: string): Promise<boolean> {
+/**
+ * Bootstrap admin allow-list. Prefer the manual `admins/{uid}` marker for
+ * additional admins; this keeps the requested owner account usable without a
+ * console round-trip.
+ */
+export const ADMIN_EMAILS = ['jackyyouyou0704@gmail.com'];
+
+export async function isAdminUser(uid: string, email?: string | null): Promise<boolean> {
+  if (email && ADMIN_EMAILS.includes(email.trim().toLowerCase())) return true;
   if (!db) return false;
   const snapshot = await getDoc(doc(db, 'admins', uid));
   recordUsage(1, 0);

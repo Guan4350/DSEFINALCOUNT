@@ -265,7 +265,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (persist(next)) {
           setCloudReady(true);
           setNeedsImport(hasLocalOnly);
-          setIsAdmin(await isAdminUser(authUser.uid));
+          setIsAdmin(await isAdminUser(authUser.uid, authUser.email));
         }
       } catch (error) {
         setCloudReady(false);

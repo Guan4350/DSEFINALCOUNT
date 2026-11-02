@@ -79,13 +79,14 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 
 ## 4. Admin model
 
-- Admin markers are manually created in Firestore Console: `admins/{auth.uid}` with `active: true`.
+- Admin markers can be created manually in Firestore Console: `admins/{auth.uid}` with `active: true`.
+- Bootstrap allow-list: `jackyyouyou0704@gmail.com` is treated as an admin by both the client and `isAdmin()`. This avoids a console UID round-trip for the owner account. Additional admins should use the marker.
 - Rules allow reading your own admin marker only; no client can create/update/delete an admin marker.
-- `systemExams/{year}` write requires `exists(admins/{uid})` and the document shape (`timezone == 'Asia/Hong_Kong'`, non-empty `events`, bounded `referenceUrl`).
-- The app shows the admin section only after reading the marker.
-- Admins can open **管理後台**, preview pending winner images, approve/reject them, and delete an entire card. Owners cannot set `approved` themselves.
-- Admin approval only changes `imageStatus`/`updatedAt`; the panel is the only UI that exposes pending images.
-- Never put an admin UID or service-account credential in a `VITE_*` variable as an authorization mechanism.
+- `systemExams/{year}` write requires `isAdmin()` and the document shape (`timezone == 'Asia/Hong_Kong'`, non-empty `events`, bounded `referenceUrl`).
+- The app shows the admin section after the marker or bootstrap email check.
+- Admins can open **管理後台**, preview pending winner images in `winnerCardSubmissions`, approve/reject them, and delete a card/submission. Owners cannot write approved `imageData` themselves.
+- Admin approval changes `imageData`/`imageStatus`/`updatedAt`; the panel is the only UI that exposes pending images.
+- Never put a service-account credential in a `VITE_*` variable as an authorization mechanism.
 
 ## 5. Secrets
 

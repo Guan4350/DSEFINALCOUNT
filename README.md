@@ -31,7 +31,7 @@ The default visual theme is **white-gold**: white/platinum paper, charcoal text,
 - **Daily reflection** — debounced autosave, synced in Mode B.
 - **Opt-in leaderboard** — only display name, current streak and total days; default hidden; polled every 60 seconds while the page is visible, with a manual refresh button and no persistent realtime listener.
 - **Admin timetable updates** — `admins/{uid}` accounts can replace `systemExams/{year}` with validated UTC+8 events (manual JSON editor + current-timetable preview); normal users can only read and locally hide entries.
-- **Admin moderation page** — `admins/{uid}` also gets a 管理後台 page to preview pending weekly-winner images, approve/reject them, and delete a card. Pending images are never rendered on the public card.
+- **Admin moderation page** — `admins/{uid}` (or the bootstrap owner email `jackyyouyou0704@gmail.com`) gets a 管理後台 page to preview pending weekly-winner images, approve/reject them, and delete a card. Pending images are never rendered on the public card.
 
 ## Quick start
 
