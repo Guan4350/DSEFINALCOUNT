@@ -26,7 +26,8 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `users/{uid}/timerSessions/{id}` | own | own, validated timer shape; delete allowed |
 | `users/{uid}/timerState/current` | own | own, validated active-timer shape; delete allowed |
 | `leaderboard/{uid}` | signed-in and (own or `visible == true`) | own only, validated shape, 20 metered writes/hour |
-| `leaderboardWinner/{weekKey}__{uid}` | signed-in | owner writes own card with `imageStatus` pending/none/rejected; **admin only** approves/rejects; owner/admin delete |
+| `leaderboardWinner/{weekKey}__{uid}` | signed-in | owner writes own card with `imageStatus` pending/none/rejected; **admin only** approves/rejects and writes approved `imageData`; owner/admin delete |
+| `winnerCardSubmissions/{weekKey}__{uid}` | owner + admin | owner writes pending/rejected data URL; admin can delete; never public |
 | `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
 | legacy Worker paths | deny | deny |
@@ -36,9 +37,10 @@ Source of truth: [../firestore.rules](../firestore.rules).
 
 - `timerState/current` stores only the user's own start/pause timestamps and timer metadata; it is used to recover after refresh/backgrounding. The client computes elapsed time from server timestamps plus a small offset, not from `setInterval` accumulation.
 - `timerSessions` remain create/read/update/delete for the owner only; weekly totals are copied to the visible `leaderboard` document, never from another user's private sessions.
-- `leaderboardWinner` is readable by signed-in users. An owner may create/update only their own card and may never set `imageStatus: approved`; `winnerReviewShape()` restricts admin updates to `imageStatus` + `updatedAt`.
+- `leaderboardWinner` is readable by signed-in users. An owner may create/update only their own card and may never write `imageData` or `imageStatus: approved`; `winnerReviewShape()` restricts admin updates to `imageData` + `imageStatus` + `updatedAt`.
+- `winnerCardSubmissions` stores the pending/rejected compressed image data and is readable only by its owner or an admin. The public card keeps `imageData` empty until approval.
 - Weekly ranking uses the existing opt-in leaderboard visibility; a user who has not opted in is not counted.
-- Images are uploaded to Storage at `winnerCards/{uid}/{weekKey}/{file}` by the owner only (≤5 MB, `image/*`). Pending/rejected images are not rendered by the UI; only `approved` paths are displayed. Deploy [../storage.rules](../storage.rules) alongside the Firestore rules.
+- No Storage: the browser compresses the image to a ≤700k-character WebP data URL before writing it. Pending/rejected data is not rendered publicly; an admin approval copies it into the public card. No Storage rules or paid bucket are required.
 - Quotes are limited to 80 characters and passed through a local sensitive-word filter. No AI image moderation is used.
 
 ### Check-in proof
@@ -73,7 +75,7 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 - No email, photo, subjects, task text, reflections, images or study minutes.
 - Hidden documents are readable by their owner only; other signed-in users cannot read them.
 - The poll stops when the page is hidden or the leaderboard view unmounts; no realtime listener is kept open.
-- Mistake-photo images never leave the device. Only an explicit weekly-winner-card image is uploaded to Storage, and only after owner submission + admin approval is it rendered.
+- Mistake-photo images never leave the device. Only an explicit weekly-winner-card image is compressed into a Firestore data URL, and only after owner submission + admin approval is it rendered publicly.
 
 ## 4. Admin model
 
@@ -87,7 +89,7 @@ The check-in document ID is the date. `create` is allowed, `update` and `delete`
 
 ## 5. Secrets
 
-Mode B needs no service account, no private key and no OAuth client secret. Firebase Storage is used only for approved weekly-winner-card images and is protected by [../storage.rules](../storage.rules).
+Mode B needs no service account, no private key, no OAuth client secret and no Firebase Storage. Weekly-winner images use a bounded Firestore data URL plus a private pending submission.
 
 Never commit:
 
@@ -107,7 +109,7 @@ Free daily limits (confirm in Firebase Console; they can change):
 - 20k document writes
 - 1 GiB stored
 
-No Blaze, Cloud Functions, cron or realtime listeners are configured. Firebase Storage is used only for weekly-winner card images (5 MB cap).
+No Blaze, Cloud Functions, Firebase Storage, cron or realtime listeners are configured.
 
 Rough behaviour:
 
@@ -124,7 +126,7 @@ The **今日用量估算** panel is a front-end estimate, not an official bill. 
 - Close the leaderboard page when not needed; its 60-second poll stops as soon as the tab is hidden.
 - Do not add task/event/leaderboard realtime listeners.
 - Use Mode A for users who do not need sync.
-- Export a JSON backup before clearing storage; images are local only.
+- Export a JSON backup before clearing storage; mistake images are local only, while an approved weekly-winner image exists as a compressed Firestore data URL.
 - Review Firebase Console usage weekly.
 
 ## 8. Incident response

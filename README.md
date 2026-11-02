@@ -74,7 +74,7 @@ Firestore location must be **asia-east2 (Hong Kong)**. Choose it when creating t
 
 Never put a service-account JSON, Apple app password, OAuth client secret or any other secret in a `VITE_*` variable. Mode B does not need any of them.
 
-After updating from an earlier build, republish [firestore.rules](firestore.rules): settings now includes `clockOffsetMs` / `selectedSubjectIds`, `leaderboard` includes weekly fields, and new `timerState` / `timerSessions` / `leaderboardWinner` rules are required. Also enable **Firebase Storage** and publish [storage.rules](storage.rules) for the weekly-card images.
+After updating from an earlier build, republish [firestore.rules](firestore.rules): settings now includes `clockOffsetMs` / `selectedSubjectIds`, `leaderboard` includes weekly fields, and new `timerState` / `timerSessions` / `leaderboardWinner` / `winnerCardSubmissions` rules are required. No Firebase Storage is needed.
 
 ### Authentication
 
@@ -85,9 +85,15 @@ Enable both providers in **Authentication → Sign-in method**:
 
 The Settings identity card exposes Email sign-in/account creation and keeps the Google button. No other providers are required.
 
-### Weekly winner card / Storage
+### Weekly winner card / no Storage
 
-Weekly totals use the existing opt-in visibility setting: only users who have opted in to the leaderboard are counted. The weekly leader can edit their own card; only an admin can approve/reject an uploaded image. Enable **Storage** in Firebase Console and publish [storage.rules](storage.rules). Images are uploaded to `winnerCards/{uid}/{weekKey}/...`; the Firestore `imageStatus` field is the display gate.
+Weekly totals use the existing opt-in visibility setting: only users who have opted in to the leaderboard are counted. The weekly leader can edit their own card; only an admin can approve/reject an uploaded image.
+
+To stay on the Spark free plan, **no Firebase Storage is used**. The image is compressed to a ≤700,000-character WebP data URL:
+
+1. the pending image is written to the private `winnerCardSubmissions/{weekKey}__{uid}` document (owner + admin only);
+2. the public `leaderboardWinner` card keeps `imageData` empty while `imageStatus` is pending/rejected;
+3. an admin approval copies the data into the public card with `imageStatus: approved`.
 
 
 ## GitHub Pages deployment
@@ -154,8 +160,11 @@ leaderboard/{uid}
 
 leaderboardWinner/{weekKey}__{uid}
   weekKey, uid, displayName, durationSeconds, quote,
-  imagePath, imageStatus(none|pending|approved|rejected),
+  imageData (approved only), imageStatus(none|pending|approved|rejected),
   settlementDate, archived, updatedAt
+
+winnerCardSubmissions/{weekKey}__{uid}
+  weekKey, uid, imageData (pending/rejected), updatedAt   (owner + admin only)
 
 systemExams/{year}
   year, source, label, events[],
@@ -199,7 +208,6 @@ src/lib/
   usage.ts             Rough front-end quota estimate
 src/styles/            Tailwind theme variables + hand-authored layout CSS
 firestore.rules        Paste directly into Firebase Console
-storage.rules          Weekly-winner image rules (Firebase Storage)
 firestore.indexes.json
 docs/                  Deployment, security, architecture
 worker/                Deferred Mode C prototype; not used by Mode B UI
@@ -229,7 +237,7 @@ Real Google login, Firestore writes and leaderboard updates require your Firebas
 
 - **Mode B does not include CalDAV / Google Calendar / Cloudflare Worker.** That is deferred Mode C. The `worker/` directory is an inactive prototype and is not referenced by the Mode B UI.
 - **ICS is a format, not a sync protocol.** Import/export is a snapshot; read-only subscriptions are one-way.
-- **Mistake-photo images never go to Firebase Storage**; localStorage is roughly 5 MB. Only an optional weekly-winner card image is uploaded to Storage (≤5 MB) and it must be approved by an admin before display.
+- **Mistake-photo images never leave localStorage**; localStorage is roughly 5 MB. The optional weekly-winner card image is compressed into a Firestore data URL (≤700k characters) and is not public until an admin approves it.
 - **The DSE database is a study aid.** 2025 is the transcribed official base; later years are estimates and must be checked against HKEAA. The app does not claim official status for shifted dates.
 - **Rules cannot compute a streak.** The client computes and writes its own public streak; rules constrain ownership, field shape, one check-in per day and a 20-per-hour public metric write budget, not mathematical correctness.
 - **Admin access is manual.** Create `admins/{your-auth-uid}` in Firestore Console; never create it from the public client.

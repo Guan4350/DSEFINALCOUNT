@@ -12,7 +12,7 @@ Mode A is the fallback: leave all six Firebase variables empty.
 - pnpm (`corepack enable` once) or npm
 - A GitHub account
 - A Firebase project on the **Spark** plan
-- No billing account, no Cloud Functions; Storage is optional and used only for the weekly-winner image
+- No billing account, no Cloud Functions and **no Firebase Storage** (winner images use Firestore data URLs)
 
 ---
 
@@ -48,7 +48,7 @@ This proves the static app is healthy before Firebase is involved.
    - Location: **asia-east2 (Hong Kong)**.
    - This cannot be changed later. If the project already has a Firestore database in another region, create a new Firebase project rather than trying to move it.
    - Start in production mode.
-6. **Build → Storage → Get started** (Spark includes a small free bucket). The weekly winner card uses Storage only for its optional image. Publish [../storage.rules](../storage.rules) from the Storage Rules tab (or `firebase deploy --only storage`).
+6. No Firebase Storage step is required. Weekly-winner images are compressed to a Firestore-safe data URL and written to `winnerCardSubmissions`; the public card only receives approved data. This keeps the project on Spark without a paid Storage bucket.
 
 ### Authorized domains
 
@@ -85,7 +85,7 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions` and `leaderboardWinner` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer or opening the weekly card; otherwise Firestore rejects the write with `permission-denied`. Publish [../storage.rules](../storage.rules) separately for winner images.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner` and `winnerCardSubmissions` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer or opening the weekly card; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
 
 Manual smoke checks after publishing:
 
@@ -180,7 +180,7 @@ After first sign-in:
 4. Check-ins are imported only when a matching completed task exists. The rest are skipped and reported.
 5. Re-importing is safe for tasks/events/reflections/settings because IDs are stable; check-ins are create-only and duplicate dates are ignored.
 
-Images are never uploaded. Export a JSON backup before clearing browser storage.
+Mistake-photo images are never uploaded. Only an explicit weekly-winner-card image is compressed into a Firestore data URL and submitted for admin review. Export a JSON backup before clearing browser storage.
 
 ---
 
@@ -195,7 +195,7 @@ Free tier, per day (check current Firebase terms):
 
 This project intentionally avoids:
 
-- Firebase Storage for mistake photos (only the optional weekly-winner card image uses Storage)
+- No Firebase Storage (winner images are compressed Firestore data URLs)
 - Cloud Functions
 - realtime listeners of any kind (the leaderboard is polled every 60 seconds)
 - background workers/cron
@@ -265,7 +265,7 @@ Set `VITE_BASE_PATH=/<repo>/` and redeploy.
 
 ### Images fail
 
-Close to the localStorage cap. Export a JSON backup and delete old images. Mistake photos are intentionally local-only; only the optional weekly-winner card image uses Firebase Storage.
+Close to the localStorage cap. Export a JSON backup and delete old images. Mistake photos are intentionally local-only; the weekly-winner image is a compressed Firestore data URL, not Storage.
 
 ### Firestore location is wrong
 

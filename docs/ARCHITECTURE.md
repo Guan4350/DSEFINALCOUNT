@@ -85,7 +85,10 @@ leaderboard/{uid}
 
 leaderboardWinner/{weekKey}__{uid}
   weekKey, uid, displayName, durationSeconds, quote,
-  imagePath, imageStatus, settlementDate, archived, updatedAt
+  imageData(approved only), imageStatus, settlementDate, archived, updatedAt
+
+winnerCardSubmissions/{weekKey}__{uid}
+  weekKey, uid, imageData(pending/rejected), updatedAt
 
 systemExams/{year}
   year, source, label, events[], timezone, referenceUrl, updatedAt
@@ -170,7 +173,7 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 - `leaderboard.weeklySeconds` + `weekKey` (Monday date) are updated after every completed timer, but only visible/opt-in leaderboard entries are ranked.
 - `leaderboardWinner/{weekKey}__{uid}` stores each candidate card. The current top user can edit their own quote/image; an old top card remains in the collection and is shown in the history wall when the top uid changes.
-- Images upload to `winnerCards/{uid}/{weekKey}/...` in Storage. New images start `pending`; only an admin can set `approved`/`rejected`, and only approved paths are rendered. Quotes are capped at 80 characters and filtered locally for sensitive words. `poster.ts` draws a PNG share card on canvas.
+- No Storage: the selected image is compressed in the browser to a ≤700,000-character WebP data URL and saved to the private `winnerCardSubmissions/{weekKey}__{uid}` document. The public card keeps `imageData` empty while pending/rejected; an admin approval copies the data into the public card with `imageStatus: approved`. Quotes are capped at 80 characters and filtered locally for sensitive words. `poster.ts` draws a PNG share card on canvas.
 
 
 
@@ -206,7 +209,7 @@ Mistake-photo images are compressed to WebP (max 1280 px, quality 0.72), then st
 - soft cap around 3.8 MB of image data
 - 4.6 MB total local data guard
 
-No Firebase Storage is used for mistake photos; they are excluded from cloud sync. The only Storage use is the optional weekly-winner-card image (`storage.rules`), which must pass admin approval before rendering.
+No Firebase Storage is used at all. Mistake photos stay local; the optional weekly-winner-card image uses a compressed Firestore data URL (≤700k characters) with a private pending submission and admin approval.
 
 ## 10. Local data import
 
@@ -228,7 +231,7 @@ The `worker/` folder is an earlier prototype for CalDAV / Google Calendar. It is
 ## 12. Non-goals
 
 - No public study-detail leaderboard.
-- No Firebase Storage for mistake photos (weekly-winner card images are the one exception).
+- No Firebase Storage at all; weekly-winner images are compressed Firestore data URLs.
 - No paid backend or Blaze.
 - No task/event/leaderboard realtime listeners.
 - No CalDAV/Worker in Mode B.

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import {
+  approveWinnerCard,
   deleteWinnerCard,
+  deleteWinnerSubmission,
   fetchWinnerCards,
-  setWinnerImageStatus,
-  winnerImageUrl,
+  fetchWinnerSubmission,
+  rejectWinnerCard,
   winnerWeekLabel,
   type WinnerCard,
 } from '../lib/winner';
@@ -17,21 +19,26 @@ function AdminWinnerRow({ card, onChanged }: { card: WinnerCard; onChanged: () =
 
   useEffect(() => {
     let cancelled = false;
-    if (!card.imagePath) {
-      setImage('');
+    if (card.imageStatus === 'approved' && card.imageData) {
+      setImage(card.imageData);
       return () => { cancelled = true; };
     }
-    void winnerImageUrl(card.imagePath)
-      .then((url) => { if (!cancelled) setImage(url); })
+    void fetchWinnerSubmission(card.weekKey, card.uid)
+      .then((submission) => { if (!cancelled) setImage(submission?.imageData || ''); })
       .catch(() => { if (!cancelled) setImage(''); });
     return () => { cancelled = true; };
-  }, [card.imagePath]);
+  }, [card.imageData, card.imageStatus, card.uid, card.weekKey]);
 
   const review = async (status: 'approved' | 'rejected') => {
     setBusy(true);
     setError('');
     try {
-      await setWinnerImageStatus(card.id, status);
+      if (status === 'approved') {
+        if (!image) throw new Error('找不到待審圖片，請用戶重新上傳。');
+        await approveWinnerCard(card.id, image);
+      } else {
+        await rejectWinnerCard(card.id);
+      }
       onChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -46,6 +53,7 @@ function AdminWinnerRow({ card, onChanged }: { card: WinnerCard; onChanged: () =
     setError('');
     try {
       await deleteWinnerCard(card.id);
+      await deleteWinnerSubmission(card.weekKey, card.uid).catch(() => undefined);
       onChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));

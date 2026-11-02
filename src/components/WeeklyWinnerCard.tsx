@@ -5,12 +5,12 @@ import { downloadWinnerPoster } from '../lib/poster';
 import { formatMinutes } from '../lib/timer';
 import { winnerWeekLabel } from '../lib/winner';
 import {
+  compressWinnerImage,
   containsSensitiveWords,
   fetchWinnerCard,
   fetchWinnerCards,
   saveWinnerCard,
-  uploadWinnerImage,
-  winnerImageUrl,
+  saveWinnerSubmission,
   WINNER_QUOTE_LIMIT,
   emptyWinnerCard,
   type WinnerCard,
@@ -37,7 +37,6 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
   const [history, setHistory] = useState<WinnerCard[]>([]);
   const [quote, setQuote] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const lastTopRef = useRef<string | null>(null);
@@ -52,7 +51,6 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
     if (!top) {
       setCard(null);
       setQuote('');
-      setImageUrl('');
       lastTopRef.current = null;
       return () => { cancelled = true; };
     }
@@ -81,22 +79,6 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [top?.uid, weekKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!card?.imagePath || card.imageStatus !== 'approved') {
-      setImageUrl('');
-      return () => { cancelled = true; };
-    }
-    void winnerImageUrl(card.imagePath)
-      .then((url) => {
-        if (!cancelled) setImageUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setImageUrl('');
-      });
-    return () => { cancelled = true; };
-  }, [card?.imagePath, card?.imageStatus]);
 
   if (!top) {
     return (
@@ -134,10 +116,12 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
     setBusy(true);
     setError('');
     try {
-      let imagePath = displayCard.imagePath;
+      let imageData = displayCard.imageData;
       let imageStatus = displayCard.imageStatus;
       if (file) {
-        imagePath = await uploadWinnerImage(file, top.uid, weekKey);
+        const compressed = await compressWinnerImage(file);
+        await saveWinnerSubmission(weekKey, top.uid, compressed);
+        imageData = '';
         imageStatus = 'pending';
       }
       const next: WinnerCard = {
@@ -147,7 +131,7 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
         displayName: top.displayName,
         durationSeconds: top.weeklySeconds || 0,
         quote: cleanQuote,
-        imagePath,
+        imageData,
         imageStatus,
         settlementDate: weekKey,
         archived: false,
@@ -170,7 +154,7 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
           displayName: top.displayName,
           durationSeconds: top.weeklySeconds || displayCard.durationSeconds,
         },
-        imageUrl,
+        displayCard.imageData,
       );
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -185,8 +169,8 @@ export function WeeklyWinnerCard({ entries, currentUser, weekKey, refreshKey = 0
       </div>
       <div className="winner-layout">
         <div className="winner-visual">
-          {status === 'approved' && imageUrl ? (
-            <img src={imageUrl} alt={`${top.displayName} 的榜首圖片`} />
+          {status === 'approved' && displayCard.imageData ? (
+            <img src={displayCard.imageData} alt={`${top.displayName} 的榜首圖片`} />
           ) : (
             <div className={`winner-placeholder ${status}`}>
               <div className="winner-orbit" aria-hidden="true"><i /><i /><i /><i /><i /></div>

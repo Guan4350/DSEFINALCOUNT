@@ -16,7 +16,6 @@ import {
   type User,
 } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -41,17 +40,15 @@ export const firebaseConfigured = requiredConfig.every((value) => Boolean(value)
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
 
 if (firebaseConfigured) {
   app = getApps().length ? getApp() : initializeApp(config as Required<typeof config>);
   auth = getAuth(app);
   db = getFirestore(app);
-  storage = getStorage(app);
   void setPersistence(auth, browserLocalPersistence);
 }
 
-export { app, auth, db, storage };
+export { app, auth, db };
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -90,11 +87,6 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   const name = displayName.trim().slice(0, 40);
   if (name) await updateAuthProfile(result.user, { displayName: name });
   return result.user;
-}
-
-export function requireStorage(): FirebaseStorage {
-  if (!storage) throw new Error('Firebase Storage 尚未設定。');
-  return storage;
 }
 
 export function observeAuth(callback: (user: User | null) => void): () => void {

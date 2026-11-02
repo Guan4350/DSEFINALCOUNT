@@ -22,10 +22,10 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
 
 /**
  * A deterministic 1080×1350 share poster drawn on canvas; no external canvas
- * library is added. If Storage images fail to load (CORS/offline), the poster
- * still renders with the Octavarium gradient and quote.
+ * library is added. If approved image data is missing/invalid, the poster still
+ * renders with the Octavarium gradient and quote.
  */
-export async function downloadWinnerPoster(card: WinnerCard, imageUrl: string): Promise<void> {
+export async function downloadWinnerPoster(card: WinnerCard, imageData: string): Promise<void> {
   const canvas = document.createElement('canvas');
   canvas.width = 1080;
   canvas.height = 1350;
@@ -61,7 +61,7 @@ export async function downloadWinnerPoster(card: WinnerCard, imageUrl: string): 
   context.font = '400 58px "Noto Serif TC", "Songti TC", serif';
   context.fillText('本週榜首', 80, 215);
 
-  const image = await loadImage(imageUrl);
+  const image = await loadImage(imageData);
   const imageX = 80;
   const imageY = 270;
   const imageW = 920;

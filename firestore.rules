@@ -184,14 +184,15 @@ service cloud.firestore {
     function winnerCardShape() {
       return request.resource.data.keys().hasOnly([
         'weekKey', 'uid', 'displayName', 'durationSeconds', 'quote',
-        'imagePath', 'imageStatus', 'settlementDate', 'archived', 'updatedAt'
+        'imageData', 'imageStatus', 'settlementDate', 'archived', 'updatedAt'
       ])
         && isDate(request.resource.data.weekKey)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 40
         && request.resource.data.durationSeconds is int && request.resource.data.durationSeconds >= 0 && request.resource.data.durationSeconds <= 100000000
         && request.resource.data.quote is string && request.resource.data.quote.size() <= 80
-        && request.resource.data.imagePath is string && request.resource.data.imagePath.size() <= 500
+        // Owners never write an approved image; only the admin review path does.
+        && request.resource.data.imageData == ''
         && request.resource.data.imageStatus in ['none', 'pending', 'rejected']
         && isDate(request.resource.data.settlementDate)
         && request.resource.data.archived is bool
@@ -199,17 +200,22 @@ service cloud.firestore {
     }
 
     function winnerReviewShape() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageStatus', 'updatedAt'])
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imageData', 'imageStatus', 'updatedAt'])
         && request.resource.data.imageStatus in ['approved', 'rejected']
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.weekKey == resource.data.weekKey
+        && (request.resource.data.imageStatus == 'rejected'
+          ? request.resource.data.imageData == ''
+          : request.resource.data.imageData is string
+            && request.resource.data.imageData.size() > 0
+            && request.resource.data.imageData.size() <= 700000)
         && request.resource.data.updatedAt == request.time;
     }
 
     function winnerApprovedTextShape() {
       return resource.data.imageStatus == 'approved'
         && request.resource.data.imageStatus == 'approved'
-        && request.resource.data.imagePath == resource.data.imagePath
+        && request.resource.data.imageData == resource.data.imageData
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'quote', 'displayName', 'durationSeconds', 'updatedAt'
         ])
@@ -217,6 +223,16 @@ service cloud.firestore {
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 40
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function winnerSubmissionShape() {
+      return request.resource.data.keys().hasOnly(['weekKey', 'uid', 'imageData', 'updatedAt'])
+        && isDate(request.resource.data.weekKey)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.imageData is string
+        && request.resource.data.imageData.size() > 0
+        && request.resource.data.imageData.size() <= 700000
         && request.resource.data.updatedAt == request.time;
     }
 
@@ -410,6 +426,14 @@ service cloud.firestore {
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.weekKey == resource.data.weekKey
           && (winnerCardShape() || winnerApprovedTextShape()));
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // Private pending/rejected image data. Only the owner and an admin can
+    // read it; the public leaderboardWinner card never contains pending data.
+    match /winnerCardSubmissions/{submissionId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if signedIn() && winnerSubmissionShape();
       allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
