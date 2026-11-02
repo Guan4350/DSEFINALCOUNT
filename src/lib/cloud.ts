@@ -234,18 +234,20 @@ export async function fetchCloudSnapshot(uid: string, profile: Profile): Promise
     getDocs(eventsQuery),
     getDocs(checkinsQuery),
     getDocs(reflectionsQuery),
-    getDocs(timerQuery),
+    // Timer history is additive. A missing/old rule for this new collection
+    // must not block profile/tasks/events from loading.
+    getDocs(timerQuery).catch(() => null),
     getDoc(doc(db, 'users', uid, 'meta', 'stats')),
     getDoc(doc(db, 'users', uid, 'meta', 'settings')),
   ]);
   recordUsage(
-    1 + taskSnap.size + eventSnap.size + checkinSnap.size + reflectionSnap.size + timerSnap.size + 2,
+    1 + taskSnap.size + eventSnap.size + checkinSnap.size + reflectionSnap.size + (timerSnap?.size ?? 0) + 2,
     0,
   );
 
   const tasks = taskSnap.docs.map((item) => taskFromData(item.id, item.data()));
   const events = eventSnap.docs.map((item) => eventFromData(item.id, item.data()));
-  const timerSessions = timerSnap.docs.map((item) => timerSessionFromData(item.id, item.data()));
+  const timerSessions = (timerSnap?.docs ?? []).map((item) => timerSessionFromData(item.id, item.data()));
   const checkins: Record<string, Checkin> = {};
   const orderedCheckins = checkinSnap.docs.slice().sort((a, b) => String(b.data().date || b.id).localeCompare(String(a.data().date || a.id)));
   for (const item of orderedCheckins) {
