@@ -11,8 +11,8 @@ Mode A is the fallback: leave all six Firebase variables empty.
 - Node.js 20+
 - pnpm (`corepack enable` once) or npm
 - A GitHub account
-- A Firebase project on the **Spark** plan
-- No billing account, no Cloud Functions and **no Firebase Storage** (winner images use Firestore data URLs)
+- A Firebase project; the static app can stay on **Spark**
+- **Firebase Functions + Cloud Scheduler require Blaze** (pay-as-you-go with free quotas). Storage is still **not** used.
 
 ---
 
@@ -98,7 +98,41 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. `calendarSyncConfig` now also validates `icalAutoUrl`, `icalAutoEnabled` and auto-sync status fields. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
+
+## 5. Deploy iCal auto-sync Functions + Scheduler
+
+The functions live in [../functions](../functions). They use Node.js 20, Firebase Functions v2, `firebase-admin` and `ical.js`.
+
+```bash
+cd functions
+npm install
+cd ..
+firebase use --add          # choose the same Firebase project, alias "default"
+firebase deploy --only functions
+```
+
+`onSchedule` creates/updates the Cloud Scheduler job automatically on deploy. Region is **asia-east1**, schedule is **every 60 minutes**, timezone **Asia/Hong_Kong**.
+
+Verify / run / inspect logs:
+
+```bash
+gcloud scheduler jobs list --location=asia-east1
+gcloud scheduler jobs describe firebase-schedule-syncIcal-asia-east1 --location=asia-east1
+gcloud scheduler jobs run firebase-schedule-syncIcal-asia-east1 --location=asia-east1
+gcloud scheduler jobs update http firebase-schedule-syncIcal-asia-east1 \
+  --location=asia-east1 --schedule="0 * * * *" --time-zone="Asia/Hong_Kong"
+firebase functions:log --only syncIcal
+```
+
+Notes:
+
+- `firebase deploy --only functions` **creates/updates the Cloud Scheduler job automatically**; you do not need a separate `gcloud scheduler jobs create`.
+- Function and Scheduler require **Blaze**; Firestore rules still control client access.
+- Each run handles at most 25 enabled users, sequentially with a 350 ms gap and a 15 s timeout per fetch, to avoid iCloud rate limiting.
+- 403/timeout/invalid-ICS failures are logged per uid and written into `calendarSyncConfig`; the run continues with the next user.
+- The function only writes `userCalendarEvents` and `calendarSyncConfig`; it never writes back to Apple.
+- Only public `https` URLs are accepted; localhost/private ranges are rejected to avoid SSRF.
 
 Manual smoke checks after publishing:
 
@@ -119,9 +153,11 @@ Manual smoke checks after publishing:
 15. Email sign-in: create an account in Settings, verify it appears under Authentication → Users and that `users/{uid}` is created.
 16. Google Calendar: press **連接 Google Calendar**, accept the Calendar scope, then **立即同步**. Confirm Google events appear under `userCalendarEvents` and on FullCalendar.
 17. Create/edit/delete a website event with **同步到 Google Calendar** checked. Confirm the Google Calendar changes and the Firestore mirror. Delete an imported Google event and confirm it is removed from Google.
-18. Apple iCal: test a `webcal://` URL, a normal `.ics` URL, and a pasted `BEGIN:VCALENDAR…END:VCALENDAR` source. Confirm events appear with the iCal legend and nothing is written back to Apple. If iCloud blocks CORS, set the optional proxy field and retry.
-19. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
-20. Calendar colours: change all five category colours in Settings, confirm full-width calendar bars, Dashboard horizon tags and the countdown card use them, then switch skin and confirm the colours do not reset.
+18. Apple iCal auto-sync: paste a public iCloud `.ics` URL (or `webcal://`) and press **儲存並啟用自動同步**. Confirm `calendarSyncConfig/{uid}` has `icalAutoUrl`, `icalAutoEnabled: true`, `icalLastStatus: "pending"`. Run the scheduler manually, then confirm `icalLastStatus: "ok"` and events in `userCalendarEvents`.
+19. Modify the source calendar (add/edit/delete an event), run the scheduler again, and confirm the same add/update/delete in Firestore. Nothing is written back to Apple.
+20. Test a pasted `BEGIN:VCALENDAR…END:VCALENDAR` source with **只匯入一次**; confirm it still works without enabling auto-sync.
+21. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
+22. Calendar colours: change all five category colours in Settings, confirm full-width calendar bars, Dashboard horizon tags and the countdown card use them, then switch skin and confirm the colours do not reset.
 
 ### Indexes
 
@@ -214,9 +250,9 @@ Free tier, per day (check current Firebase terms):
 This project intentionally avoids:
 
 - No Firebase Storage (winner images are compressed Firestore data URLs)
-- Cloud Functions
+- No general-purpose backend; only the scheduled iCal reconciliation function
 - realtime listeners of any kind (the leaderboard is polled every 60 seconds)
-- background workers/cron
+- background workers/cron except the 60-minute iCal scheduler
 - public leaderboard reads beyond the visible opt-in documents
 
 The **今日用量估算** panel is a local estimate, not an official bill. Reduce usage by:

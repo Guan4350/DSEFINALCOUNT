@@ -449,6 +449,13 @@ export async function fetchCalendarSyncConfig(uid: string): Promise<CalendarSync
       ? data.icalUrls.filter((item): item is string => typeof item === 'string')
       : [],
     icalProxyUrl: asString(data.icalProxyUrl) || undefined,
+    icalAutoUrl: asString(data.icalAutoUrl) || undefined,
+    icalAutoEnabled: data.icalAutoEnabled === true,
+    icalLastSyncAt: asString(data.icalLastSyncAt) || undefined,
+    icalLastStatus: data.icalLastStatus === 'ok' || data.icalLastStatus === 'error' ? data.icalLastStatus : 'pending',
+    icalLastError: asString(data.icalLastError) || undefined,
+    icalLastEventCount: asNumber(data.icalLastEventCount, 0),
+    icalLastHttpStatus: asNumber(data.icalLastHttpStatus, 0),
     updatedAt: timestampToISO(data.updatedAt),
   };
 }
@@ -462,6 +469,13 @@ export async function saveCalendarSyncConfig(uid: string, config: CalendarSyncCo
     lastError: config.lastError || '',
     icalUrls: config.icalUrls.slice(0, 10),
     icalProxyUrl: config.icalProxyUrl || '',
+    icalAutoUrl: config.icalAutoUrl || '',
+    icalAutoEnabled: config.icalAutoEnabled === true,
+    icalLastSyncAt: config.icalLastSyncAt || '',
+    icalLastStatus: config.icalLastStatus || 'pending',
+    icalLastError: config.icalLastError || '',
+    icalLastEventCount: Math.max(0, Math.round(config.icalLastEventCount || 0)),
+    icalLastHttpStatus: Math.max(0, Math.round(config.icalLastHttpStatus || 0)),
     updatedAt: serverTimestamp(),
   });
   recordUsage(0, 1);

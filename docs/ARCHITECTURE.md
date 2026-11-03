@@ -97,7 +97,9 @@ userCalendarEvents/{uid}__{eventId}
 
 calendarSyncConfig/{uid}
   googleConnected, googleCalendarId, lastSyncAt, lastError, icalUrls[],
-  icalProxyUrl, updatedAt
+  icalProxyUrl, icalAutoUrl, icalAutoEnabled, icalLastSyncAt,
+  icalLastStatus, icalLastError, icalLastEventCount, icalLastHttpStatus,
+  updatedAt
 
 userPreferences/{uid}
   themeMode(system|octavarium|train), theme(light|dark), texture,
@@ -196,6 +198,17 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 - `AppContext` keeps local events in `data.events` and synced Google/iCal mirrors in `data.syncedEvents`; `allEvents` merges both for FullCalendar. Synced edits/deletes route to `userCalendarEvents` and (for Google) the API.
 - Manual sync only; the panel enforces a 60-second cooldown. `calendarSyncConfig` stores only connection metadata, never the access token.
 
+### Server-side iCal auto-sync
+
+`functions/index.js` is a Firebase Functions v2 `onSchedule` job (Node 20, region `asia-east1`, every 60 minutes). It reads `calendarSyncConfig` documents with `icalAutoEnabled == true`, fetches each `icalAutoUrl` server-side (no CORS), parses VEVENTs with `ical.js`, and reconciles only `source: 'ics'` documents in `userCalendarEvents`.
+
+- New/changed events are written; missing ICS events are deleted.
+- Google events and local events are never touched.
+- The same deterministic `ical-${FNV(externalId)}` ID scheme is shared with the browser, so existing imports update rather than duplicate.
+- Per-user 403/timeout/parse failures update `icalLastStatus`/`icalLastError` and log; the run continues.
+- Requests are sequential with a 350 ms gap, a 15 s timeout and a 25-user cap per run to limit iCloud blocking.
+- The function never writes to iCloud; it is one-way.
+
 ## 8. System DSE timetable
 
 `src/data/dse2025.ts` contains the 2025 HKEAA finalised written timetable (subject, paper, date, start/end). `src/lib/systemExams.ts`:
@@ -251,7 +264,7 @@ The `worker/` folder is an earlier prototype for CalDAV / Google Calendar. It is
 
 - No public study-detail leaderboard.
 - No Firebase Storage at all; weekly-winner images are compressed Firestore data URLs.
-- No paid backend or Blaze.
+- No backend beyond the single scheduled iCal function; it requires Blaze.
 - No task/event/leaderboard realtime listeners.
 - No background Google Calendar webhook/cron; sync is manual.
 - No CalDAV/Worker in Mode B.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CalendarEvent, CalendarSyncConfig, Subject } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { importIcalInput, loadCalendarSyncConfig, saveCalendarConfig, syncGoogleNow } from '../lib/calendarSync';
+import { importIcalInput, loadCalendarSyncConfig, sanitizeIcalUrl, saveCalendarConfig, syncGoogleNow } from '../lib/calendarSync';
 import { clearGoogleToken, connectCalendar, hasGoogleCalendarToken } from '../lib/googleCalendar';
 import { Icon } from './Icons';
 
@@ -22,7 +22,7 @@ export function CalendarSyncPanel({
 }: CalendarSyncPanelProps) {
   const { showToast } = useApp();
   const [config, setConfig] = useState<CalendarSyncConfig | null>(null);
-  const [busy, setBusy] = useState<'connect' | 'sync' | 'ical' | 'disconnect' | null>(null);
+  const [busy, setBusy] = useState<'connect' | 'sync' | 'ical' | 'auto' | 'disconnect' | null>(null);
   const [icalInput, setIcalInput] = useState('');
   const [icalProxy, setIcalProxy] = useState('');
   const [error, setError] = useState('');
@@ -38,6 +38,7 @@ export function CalendarSyncPanel({
       .then((next) => {
         if (cancelled) return;
         setConfig(next);
+        setIcalInput(next.icalAutoUrl || next.icalUrls[next.icalUrls.length - 1] || '');
         setIcalProxy(next.icalProxyUrl || '');
         onGoogleAvailability(next.googleConnected && hasGoogleCalendarToken());
       })
@@ -100,6 +101,46 @@ export function CalendarSyncPanel({
     }
   };
 
+  const enableAutoSync = async () => {
+    if (!uid) {
+      showToast('請先登入再啟用自動同步。', 'error');
+      return;
+    }
+    setBusy('auto');
+    setError('');
+    try {
+      const url = sanitizeIcalUrl(icalInput);
+      const next = await saveCalendarConfig(uid, {
+        icalAutoUrl: url,
+        icalAutoEnabled: true,
+        icalLastStatus: 'pending',
+        icalLastError: '',
+        icalUrls: Array.from(new Set([...(config?.icalUrls || []), url])).slice(-10),
+      });
+      setConfig(next);
+      setIcalInput(url);
+      showToast('已啟用 iCloud/iCal 自動同步；Functions 會每 60 分鐘更新，毋須再手動匯入。', 'success');
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : String(nextError);
+      setError(message);
+      showToast(`啟用失敗：${message}`, 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const refreshStatus = async () => {
+    if (!uid) return;
+    try {
+      const next = await loadCalendarSyncConfig(uid);
+      setConfig(next);
+      setIcalInput(next.icalAutoUrl || next.icalUrls[next.icalUrls.length - 1] || icalInput);
+      showToast('已重新讀取自動同步狀態。', 'success');
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  };
+
   const importIcal = async () => {
     if (!uid) {
       showToast('請先登入再匯入 iCal。', 'error');
@@ -155,7 +196,7 @@ export function CalendarSyncPanel({
           <div className="eyebrow">Calendar sync / manual</div>
           <h2>外部日曆</h2>
           <p className="help">
-            Google Calendar 雙向同步；Apple iCal 只單向匯入。每次同步由你手動觸發，避免 API 超限。
+            Google Calendar 雙向同步由你手動觸發；Apple iCal 由 Functions 每 60 分鐘單向自動同步。
           </p>
         </div>
         <span className={`chip ${connected ? 'chip-gold' : ''}`}>
@@ -192,11 +233,12 @@ export function CalendarSyncPanel({
         <div className="calendar-sync-block">
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <strong>Apple iCal</strong>
-            <span className="tiny muted">只讀匯入</span>
+            <span className="tiny muted">每 60 分鐘 · 只讀</span>
           </div>
           <div className="help">
-            支援兩種輸入：<strong>公開 .ics 網址</strong>，或直接貼上由 <code>BEGIN:VCALENDAR</code> 開始的完整原始碼。
-            只會單向匯入；網站修改／刪除不會寫回 Apple。
+            貼上 iCloud / iCal <strong>公開 .ics 網址</strong>。儲存後由 Firebase Functions + Cloud Scheduler 每 60 分鐘自動同步，唔需要再手動匯入。
+            啟用後會以該 feed 為準：feed 已刪除的事件會從網站移除。
+            亦可在下面貼完整原始碼，使用「只匯入一次」作即時測試。
           </div>
           <textarea
             className="textarea"
@@ -208,22 +250,33 @@ export function CalendarSyncPanel({
             spellCheck={false}
             style={{ width: '100%', minHeight: 110, fontFamily: 'var(--font-mono)', fontSize: 11 }}
           />
-          <label className="field" style={{ margin: 0 }}>
-            <span className="label">CORS proxy（可選，Apple iCloud 用）</span>
-            <input
-              className="input"
-              value={icalProxy}
-              onChange={(input) => setIcalProxy(input.target.value)}
-              placeholder="https://your-proxy.example/?url={url}"
-              spellCheck={false}
-            />
-          </label>
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-sm" onClick={() => void importIcal()} disabled={!uid || busy !== null}>
-              {busy === 'ical' ? '匯入中…' : '匯入 iCal'}
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => void enableAutoSync()} disabled={!uid || busy !== null}>
+              {busy === 'auto' ? '儲存中…' : '儲存並啟用自動同步'}
             </button>
-            <span className="tiny muted">自動清理 BOM、多餘空白、webcal://、追蹤參數</span>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => void importIcal()} disabled={!uid || busy !== null}>
+              {busy === 'ical' ? '匯入中…' : '只匯入一次'}
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => void refreshStatus()} disabled={!uid}>
+              重新整理狀態
+            </button>
           </div>
+          {config?.icalAutoUrl ? (
+            <div className={`notice${config.icalLastStatus === 'error' ? ' exam' : ''}`} style={{ marginTop: 4 }}>
+              <Icon name="sync" size={14} />
+              <span>
+                自動同步已啟用 · {config.icalAutoUrl}
+                <br />
+                {config.icalLastStatus === 'ok'
+                  ? `上次成功：${config.icalLastSyncAt ? new Date(config.icalLastSyncAt).toLocaleString('zh-HK') : '剛剛'} · ${config.icalLastEventCount || 0} 個事件`
+                  : config.icalLastStatus === 'error'
+                    ? `上次失敗：${config.icalLastError || '未知錯誤'}`
+                    : '等待下一次排程（每 60 分鐘）'}
+              </span>
+            </div>
+          ) : (
+            <div className="help">未啟用自動同步。儲存 URL 後，排程會每 60 分鐘抓取一次。</div>
+          )}
           {config?.icalUrls?.length ? (
             <div className="help" style={{ wordBreak: 'break-all' }}>
               已記錄 {config.icalUrls.length} 個訂閱 URL；重新匯入會以相同 UID 更新。

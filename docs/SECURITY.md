@@ -29,7 +29,7 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `leaderboardWinner/{weekKey}__{uid}` | signed-in | owner writes own card with `imageStatus` pending/none/rejected; **admin only** approves/rejects and writes approved `imageData`; owner/admin delete |
 | `winnerCardSubmissions/{weekKey}__{uid}` | owner + admin | owner writes pending/rejected data URL; admin can delete; never public |
 | `userCalendarEvents/{uid}__{eventId}` | own | own, validated `eventShape()` with `uid == auth.uid` |
-| `calendarSyncConfig/{uid}` | own | own, connection metadata + optional iCal proxy URL; access token never stored |
+| `calendarSyncConfig/{uid}` | own | own, connection metadata + iCal URL/auto-sync status; access token never stored |
 | `userPreferences/{uid}` | own | own, theme fields + five category colours only |
 | `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
@@ -52,7 +52,9 @@ Source of truth: [../firestore.rules](../firestore.rules).
 - `userCalendarEvents` is queried with `where('uid', '==', auth.uid)` and rules allow only the owner to read/write. The document ID includes the uid to prevent collisions between users importing the same Google event.
 - `calendarSyncConfig` holds only `googleConnected`, `lastSyncAt`, `lastError`, `icalUrls` and an optional `icalProxyUrl`; the token is never persisted.
 - `userPreferences` holds only the theme mode, light/dark appearance, texture flag and five validated hex category colours. It is readable/writable by the owner only.
-- iCal source text can be pasted directly and is never stored; URL imports are user-supplied and fetched directly. No server-side proxy bypasses CORS; an optional user-configured proxy is used only after a direct browser fetch fails.
+- iCal source text can be pasted directly and is never stored; URL imports are user-supplied. Browser imports use direct fetch; the scheduled Functions job fetches server-side with no CORS dependency.
+- The scheduled function accepts only public `https` URLs, rejects localhost/private IPv4 ranges, follows at most four redirects (revalidating each), times out after 15 s, and caps responses at 5 MB. It processes at most 25 users sequentially with a 350 ms gap. HTTP 403/timeouts/parse errors are logged and stored as `icalLastError`; they never abort the run.
+- Functions + Cloud Scheduler require Blaze; the browser app and Firestore rules remain unchanged for Spark-only users.
 
 ### Check-in proof
 
@@ -121,7 +123,7 @@ Free daily limits (confirm in Firebase Console; they can change):
 - 20k document writes
 - 1 GiB stored
 
-No Blaze, Cloud Functions, Firebase Storage, cron or realtime listeners are configured.
+No Blaze-only backend is needed for the dashboard; the single scheduled iCal function requires Blaze. No Firebase Storage, cron (other than that 60-minute job) or realtime listeners are configured.
 
 Rough behaviour:
 

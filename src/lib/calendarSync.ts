@@ -170,6 +170,14 @@ export function sanitizeIcalInput(input: string): SanitizedIcalInput {
   }
 }
 
+export function sanitizeIcalUrl(input: string): string {
+  const sanitized = sanitizeIcalInput(input);
+  if (sanitized.kind !== 'url') {
+    throw new Error('自動同步只接受公開 .ics URL；完整原始碼請用「只匯入一次」。');
+  }
+  return sanitized.value;
+}
+
 function proxyUrl(base: string, target: string): string {
   if (base.includes('{url}')) return base.replace('{url}', encodeURIComponent(target));
   return `${base}${base.includes('?') ? '&' : '?'}url=${encodeURIComponent(target)}`;

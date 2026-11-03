@@ -241,7 +241,10 @@ service cloud.firestore {
 
     function calendarSyncConfigShape() {
       return request.resource.data.keys().hasOnly([
-        'googleConnected', 'googleCalendarId', 'lastSyncAt', 'lastError', 'icalUrls', 'icalProxyUrl', 'updatedAt'
+        'googleConnected', 'googleCalendarId', 'lastSyncAt', 'lastError', 'icalUrls',
+        'icalProxyUrl', 'icalAutoUrl', 'icalAutoEnabled', 'icalLastSyncAt',
+        'icalLastStatus', 'icalLastError', 'icalLastEventCount',
+        'icalLastHttpStatus', 'updatedAt'
       ])
         && request.resource.data.googleConnected is bool
         && request.resource.data.googleCalendarId is string
@@ -253,6 +256,13 @@ service cloud.firestore {
         && request.resource.data.icalUrls.size() <= 10
         && request.resource.data.icalProxyUrl is string
         && request.resource.data.icalProxyUrl.size() <= 1000
+        && request.resource.data.icalAutoUrl is string && request.resource.data.icalAutoUrl.size() <= 1000
+        && request.resource.data.icalAutoEnabled is bool
+        && request.resource.data.icalLastSyncAt is string && request.resource.data.icalLastSyncAt.size() <= 40
+        && request.resource.data.icalLastStatus in ['pending', 'ok', 'error']
+        && request.resource.data.icalLastError is string && request.resource.data.icalLastError.size() <= 500
+        && request.resource.data.icalLastEventCount is int && request.resource.data.icalLastEventCount >= 0
+        && request.resource.data.icalLastHttpStatus is int && request.resource.data.icalLastHttpStatus >= 0
         && request.resource.data.updatedAt == request.time;
     }
 

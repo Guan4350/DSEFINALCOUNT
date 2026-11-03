@@ -16,7 +16,7 @@ The visual system now offers **Octavarium** (sky / grass / silver, default) and 
 - **FullCalendar** month / week / day / list views.
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
 - **Google Calendar two-way sync** — connect with an explicit Calendar OAuth consent, pull Google events into `userCalendarEvents`, and push website create/edit/delete back to Google. Sync is **manual only**, with a 60-second cooldown, to avoid API quota surprises. The access token is kept in sessionStorage; reconnect after it expires.
-- **Apple iCal one-way import** — paste a public `.ics` URL, a `webcal://` link, or the complete `BEGIN:VCALENDAR…` source. A sanitizer strips BOM/zero-width characters/extra whitespace/tracking parameters; an optional CORS proxy field handles Apple iCloud interception. Events are written to `userCalendarEvents` as read-only mirrors and are never written back to Apple.
+- **Apple iCal auto-sync (server-side)** — save a public iCloud/iCal URL once in Settings. Firebase Functions + Cloud Scheduler fetch it every 60 minutes without browser CORS, parse VEVENTs, and reconcile `userCalendarEvents` (add/update/delete). It is one-way Apple → website only. The input still accepts a pasted `BEGIN:VCALENDAR…` source for a one-off import.
 - **iPad-style calendar + category colours** — full-width coloured event bars with automatic stacking, red Today badge, red exam/deadline edges, and user-owned DSE / Mock / 校內SBA / 溫書 / 自訂 colours. The palette is stored in `userPreferences` and is independent of the active skin.
 - **Global theme skins** — follow-system / Octavarium / Train of Thought, with light/dark appearance and a background-texture toggle. Preferences live in `userPreferences` and sync across devices; guests use localStorage. Themes are CSS variables only, so all existing pages, popups and module-2 timer/winner surfaces inherit them.
 - **Dashboard horizon tags** — the Next on the horizon list and countdown card show the same category colours; the card has a quick Octavarium/Train switch while preserving countdown, subject, check-in and progress logic.
@@ -91,6 +91,20 @@ Google login alone is not enough for Calendar. In Google Cloud Console, for the 
 4. The app requests `https://www.googleapis.com/auth/calendar.events` only when you press **連接 Google Calendar**; normal Google login stays request-minimal.
 
 The Calendar access token lives in `sessionStorage` for about 55 minutes. There is no refresh token or background sync: press **重新授權** when it expires, then **立即同步**.
+
+### iCloud iCal auto-sync deployment
+
+The server-side iCal sync uses Firebase Functions v2 + Cloud Scheduler and therefore needs **Blaze**. It is the only paid-plan feature; Firestore rules still protect client data and no Storage bucket is used.
+
+```bash
+cd functions && npm install && cd ..
+firebase use --add
+firebase deploy --only functions
+gcloud scheduler jobs run firebase-schedule-syncIcal-asia-east1 --location=asia-east1
+firebase functions:log --only syncIcal
+```
+
+The scheduled function runs every 60 minutes in `asia-east1`, handles up to 25 enabled users sequentially, and logs per-user HTTP/parse failures without aborting the run.
 
 ### Authentication
 
@@ -189,7 +203,9 @@ userCalendarEvents/{uid}__{eventId}
 
 calendarSyncConfig/{uid}
   googleConnected, googleCalendarId, lastSyncAt, lastError,
-  icalUrls[], icalProxyUrl, updatedAt
+  icalUrls[], icalProxyUrl,
+  icalAutoUrl, icalAutoEnabled, icalLastSyncAt, icalLastStatus,
+  icalLastError, icalLastEventCount, icalLastHttpStatus, updatedAt
 
 userPreferences/{uid}
   themeMode(system|octavarium|train), theme(light|dark),
@@ -238,6 +254,7 @@ src/lib/
 src/styles/            Tailwind theme variables + hand-authored layout CSS
 firestore.rules        Paste directly into Firebase Console
 firestore.indexes.json
+functions/             Node.js scheduled iCal sync (Firebase Functions v2 + Scheduler)
 docs/                  Deployment, security, architecture
 worker/                Deferred Mode C prototype; not used by Mode B UI
 ```
@@ -273,7 +290,7 @@ Real Google login, Firestore writes and leaderboard updates require your Firebas
 
 ## Docs
 
-- [Deployment: Firebase Spark, asia-east2, GitHub Pages](docs/DEPLOYMENT.md)
+- [Deployment: Firebase, Functions/Scheduler, GitHub Pages](docs/DEPLOYMENT.md)
 - [Architecture: Mode A/B, sync flow, data model](docs/ARCHITECTURE.md)
 - [Security: rules, privacy, anti-abuse, quota](docs/SECURITY.md)
 - [Deferred Mode C: CalDAV / Google Calendar notes](docs/CALDAV.md)
