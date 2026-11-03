@@ -16,8 +16,10 @@ The visual system now offers **Octavarium** (sky / grass / silver, default) and 
 - **FullCalendar** month / week / day / list views.
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
 - **Google Calendar two-way sync** — connect with an explicit Calendar OAuth consent, pull Google events into `userCalendarEvents`, and push website create/edit/delete back to Google. Sync is **manual only**, with a 60-second cooldown, to avoid API quota surprises. The access token is kept in sessionStorage; reconnect after it expires.
-- **Apple iCal one-way import** — paste a public `.ics` URL; events are parsed and written to `userCalendarEvents` as read-only mirrors. The website never writes back to Apple Calendar.
+- **Apple iCal one-way import** — paste a public `.ics` URL, a `webcal://` link, or the complete `BEGIN:VCALENDAR…` source. A sanitizer strips BOM/zero-width characters/extra whitespace/tracking parameters; an optional CORS proxy field handles Apple iCloud interception. Events are written to `userCalendarEvents` as read-only mirrors and are never written back to Apple.
+- **iPad-style calendar + category colours** — full-width coloured event bars with automatic stacking, red Today badge, red exam/deadline edges, and user-owned DSE / Mock / 校內SBA / 溫書 / 自訂 colours. The palette is stored in `userPreferences` and is independent of the active skin.
 - **Global theme skins** — follow-system / Octavarium / Train of Thought, with light/dark appearance and a background-texture toggle. Preferences live in `userPreferences` and sync across devices; guests use localStorage. Themes are CSS variables only, so all existing pages, popups and module-2 timer/winner surfaces inherit them.
+- **Dashboard horizon tags** — the Next on the horizon list and countdown card show the same category colours; the card has a quick Octavarium/Train switch while preserving countdown, subject, check-in and progress logic.
 - **High-precision countdown** — the dashboard shows the nearest selected exam as **X days HH:MM:SS**, refreshed every second against an explicitly Hong Kong (UTC+8) timestamp. A settings panel compares the device clock with time.is / HKEAA and stores a bounded ±5-minute correction.
 - **DSE subject focus** — opt in to the subjects you actually sit (core subjects and individual electives); the hero countdown filters to those subjects only, with a horizontally scrollable switcher when several exams are close. Selection syncs to Firestore in Mode B and localStorage in Mode A.
 - **Per-paper focus timer + study statistics** — a full-screen focus stage with subject/paper title, a huge HH:MM:SS clock, start/remaining/end progress bar and bottom controls; countdown mock exams with 15/5-minute colour warnings and an end-of-time bell, or use a stopwatch for study sessions. Official paper durations come from a built-in JSON library (custom durations supported). Active state is mirrored to Firestore with server timestamps and restored after refresh/backgrounding; Wake Lock and native fullscreen are used where supported. Completed sessions sync to a private `timerSessions` collection and feed weekly / monthly subject-share and trend charts plus CSV export.
@@ -187,11 +189,11 @@ userCalendarEvents/{uid}__{eventId}
 
 calendarSyncConfig/{uid}
   googleConnected, googleCalendarId, lastSyncAt, lastError,
-  icalUrls[], updatedAt
+  icalUrls[], icalProxyUrl, updatedAt
 
 userPreferences/{uid}
   themeMode(system|octavarium|train), theme(light|dark),
-  texture, updatedAt
+  texture, categoryColors{dse,mock,schoolSba,study,custom}, updatedAt
 
 systemExams/{year}
   year, source, label, events[],

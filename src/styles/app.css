@@ -1265,17 +1265,14 @@
 
 .event-exam {
   border-left-color: var(--exam) !important;
-  background: var(--exam-soft) !important;
 }
 
 .event-task {
   border-left-color: var(--primary-hover) !important;
-  background: var(--event-task-bg) !important;
 }
 
 .event-custom {
   border-left-color: var(--muted) !important;
-  background: var(--event-custom-bg) !important;
 }
 
 /* Official HKEAA timetable events: same red exam family, dashed gold edge so
@@ -5023,4 +5020,152 @@ html[data-texture='on'][data-skin='train'] body::after {
 
 .day-event-main {
   width: 100%;
+}
+
+/* iPad-style calendar bars + user category colours. */
+.calendar-card .fc .fc-daygrid-event {
+  margin: 1px 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border-width: 0 0 0 3px;
+}
+
+.event-exam {
+  border-left-color: var(--exam) !important;
+}
+
+.event-task {
+  border-left-color: var(--primary-hover) !important;
+}
+
+.calendar-card .fc .fc-daygrid-event.event-exam,
+.calendar-card .fc .fc-timegrid-event.event-exam {
+  box-shadow: inset 3px 0 0 var(--exam);
+}
+
+.calendar-card .fc .fc-day-today .fc-daygrid-day-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+}
+
+.calendar-card .fc .fc-daygrid-day.fc-day-today {
+  background: color-mix(in srgb, #c0392b 7%, transparent);
+}
+
+.event-category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.hero-next-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.hero-theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-theme-switch .btn {
+  padding: 4px 7px;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.category-color-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.category-color-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.7fr) minmax(150px, 1fr) 38px;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-color-name {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.category-color-preview {
+  overflow: hidden;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-color-row input[type='color'] {
+  width: 38px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--input-bg);
+}
+
+@media (max-width: 600px) {
+  .category-color-row {
+    grid-template-columns: minmax(90px, 1fr) minmax(120px, 1.4fr) 36px;
+    gap: 6px;
+  }
+}
+
+.calendar-card .fc .fc-daygrid-event-dot {
+  display: none;
+}
+
+.calendar-card .fc .fc-daygrid-event .fc-event-main {
+  min-width: 0;
+}
+
+.calendar-card .fc .fc-daygrid-event .fc-event-title {
+  font-weight: 500;
+}
+
+.calendar-card .fc .fc-daygrid-event .fc-event-time {
+  font-size: 8.5px;
+  opacity: 0.82;
+}
+
+.btn-xs {
+  min-height: 0;
+  padding: 4px 7px;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.calendar-card .fc .fc-event.event-deadline {
+  border-left-color: var(--exam) !important;
+  box-shadow: inset 3px 0 0 var(--exam);
 }

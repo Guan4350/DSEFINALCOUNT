@@ -12,6 +12,7 @@ import {
 import { nextDse, upcomingEvents } from '../lib/analytics';
 import { eventStartMs, formatOffset, useSecondTick } from '../lib/clock';
 import { upcomingExamEvents } from '../lib/exams';
+import { eventCategoryStyle } from '../lib/categoryColors';
 import { SubjectBadge } from './SubjectBadge';
 import { Heatmap } from './Heatmap';
 import { TaskEditor } from './TaskEditor';
@@ -42,6 +43,9 @@ export function Dashboard() {
     toggleTask,
     checkIn,
     saveReflection,
+    categoryColors,
+    themeMode,
+    setThemeMode,
   } = useApp();
   const today = todayISO();
   const clockOffsetMs = data.settings.clockOffsetMs ?? 0;
@@ -252,12 +256,30 @@ export function Dashboard() {
               </div>
             </div>
             <aside className="hero-aside">
+              <div className="hero-theme-switch" aria-label="倒數卡主題">
+                <span>Countdown skin</span>
+                <button
+                  type="button"
+                  className={`btn btn-xs${themeMode === 'octavarium' ? ' btn-primary' : ''}`}
+                  onClick={() => setThemeMode('octavarium')}
+                >
+                  Octavarium
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-xs${themeMode === 'train' ? ' btn-primary' : ''}`}
+                  onClick={() => setThemeMode('train')}
+                >
+                  Train
+                </button>
+              </div>
               <div>
                 <div className="hero-side-label">Next on the horizon</div>
                 <div className="hero-next">
                   {upcoming.length ? (
                     upcoming.slice(0, 3).map((event) => {
                       const days = daysUntil(event.start, today);
+                      const style = eventCategoryStyle(categoryColors, event.type);
                       return (
                         <button
                           type="button"
@@ -269,7 +291,10 @@ export function Dashboard() {
                           <span className="hero-next-title">{event.title}</span>
                           <span className="hero-next-days">{days >= 0 ? days : '—'}</span>
                           <span className="hero-next-meta">
-                            {EVENT_TYPE_LABEL[event.type]} · {formatDate(event.start)}
+                            <span className="event-category-tag" style={{ background: style.background, color: style.text }}>
+                              {style.label}
+                            </span>
+                            {formatDate(event.start)}
                           </span>
                         </button>
                       );
@@ -498,6 +523,7 @@ export function Dashboard() {
               <div className="upcoming-list">
                 {upcoming.map((event) => {
                   const days = daysUntil(event.start, today);
+                  const style = eventCategoryStyle(categoryColors, event.type);
                   return (
                     <button
                       type="button"
@@ -506,15 +532,17 @@ export function Dashboard() {
                       onClick={() => goToDate(event.start)}
                       style={{ borderWidth: 0, borderBottom: '1px solid var(--line)', background: 'transparent', color: 'inherit', textAlign: 'left' }}
                     >
-                      <span className={`upcoming-date ${eventTone(event)}`}>
+                      <span className={`upcoming-date ${eventTone(event)}`} style={{ borderLeftColor: style.background }}>
                         <strong>{event.start.slice(8, 10)}</strong>
                         {formatDate(event.start, { month: 'short' })}
                       </span>
                       <span style={{ minWidth: 0 }}>
                         <span className="upcoming-title">{event.title}</span>
                         <span className="upcoming-meta">
-                          {EVENT_TYPE_LABEL[event.type]}
-                          {event.subjectId ? ` · ${data.subjects.find((subject) => subject.id === event.subjectId)?.name || ''}` : ''}
+                          <span className="event-category-tag" style={{ background: style.background, color: style.text }}>
+                            {style.label}
+                          </span>
+                          {event.subjectId ? data.subjects.find((subject) => subject.id === event.subjectId)?.name || '' : ''}
                         </span>
                       </span>
                       <span className={`upcoming-days${eventTone(event) === 'exam' ? ' exam' : ''}`}>{days >= 0 ? `${days}d` : '—'}</span>

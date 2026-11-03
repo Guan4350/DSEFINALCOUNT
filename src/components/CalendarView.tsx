@@ -13,6 +13,7 @@ import type { CalendarEvent, EventType, Task } from '../types';
 import { TASK_KIND_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { formatFullDate, formatTime, toISODate, todayISO } from '../lib/date';
+import { eventCategoryStyle } from '../lib/categoryColors';
 import { SubjectBadge } from './SubjectBadge';
 import { TaskEditor } from './TaskEditor';
 import { EventEditor } from './EventEditor';
@@ -33,15 +34,13 @@ interface CalendarInput {
     | { kind: 'system'; event: CalendarEvent };
   rrule?: string;
   editable?: boolean;
+  backgroundColor?: string;
+  borderColor?: string;
+  textColor?: string;
 }
 
 function isExamType(type: CalendarEvent['type']): boolean {
   return type === 'dse' || type === 'mock' || type === 'school' || type === 'sba';
-}
-
-function categoryLabel(type: CalendarEvent['type']): string {
-  if (isExamType(type)) return 'DSE 考試';
-  return type === 'study' ? '溫書' : '雜事';
 }
 
 /**
@@ -82,6 +81,7 @@ export function CalendarView() {
     refreshCloud,
     setView,
     showToast,
+    categoryColors,
     user,
   } = useApp();
   const [googleSyncAvailable, setGoogleSyncAvailable] = useState(false);
@@ -103,23 +103,29 @@ export function CalendarView() {
   const inputs = useMemo<CalendarInput[]>(() => {
     const eventInputs: CalendarInput[] = allEvents
       .filter((event) => !event.deleted)
-      .map((event) => ({
-        id: event.id,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
-        classNames: [
-          isExamType(event.type) ? 'event-exam' : event.type === 'study' ? 'event-task' : 'event-custom',
-          event.source === 'system' ? 'event-system' : '',
-          event.source === 'google' ? 'event-google' : '',
-          event.source === 'ics' ? 'event-ical' : '',
-          event.start.slice(0, 10) < todayISO() ? 'event-past' : '',
-        ].filter(Boolean),
-        rrule: rruleWithStart(event),
-        editable: event.source !== 'system',
-        extendedProps: { kind: event.source === 'system' ? ('system' as const) : ('event' as const), event },
-      }));
+      .map((event) => {
+        const style = eventCategoryStyle(categoryColors, event.type);
+        return {
+          id: event.id,
+          title: event.title,
+          start: event.start,
+          end: event.end,
+          allDay: event.allDay,
+          classNames: [
+            isExamType(event.type) ? 'event-exam' : event.type === 'study' ? 'event-task' : 'event-custom',
+            event.source === 'system' ? 'event-system' : '',
+            event.source === 'google' ? 'event-google' : '',
+            event.source === 'ics' ? 'event-ical' : '',
+            event.start.slice(0, 10) < todayISO() ? 'event-past' : '',
+          ].filter(Boolean),
+          rrule: rruleWithStart(event),
+          editable: event.source !== 'system',
+          backgroundColor: style.background,
+          borderColor: isExamType(event.type) ? 'var(--exam)' : style.border,
+          textColor: style.text,
+          extendedProps: { kind: event.source === 'system' ? ('system' as const) : ('event' as const), event },
+        };
+      });
     const taskInputs: CalendarInput[] = data.tasks
       .filter((task) => task.dueDate)
       .map((task) => ({
@@ -127,11 +133,11 @@ export function CalendarView() {
         title: `${task.completed ? '✓ ' : ''}${task.title}`,
         start: task.dueDate,
         allDay: true,
-        classNames: ['event-task', task.completed ? 'event-past' : ''],
+        classNames: ['event-task', 'event-deadline', task.completed ? 'event-past' : ''],
         extendedProps: { kind: 'task' as const, task },
       }));
     return [...eventInputs, ...taskInputs];
-  }, [allEvents, data.tasks]);
+  }, [allEvents, categoryColors, data.tasks]);
 
   const selectedEvents = useMemo(
     () =>
@@ -256,7 +262,9 @@ export function CalendarView() {
             height="auto"
             contentHeight="auto"
             expandRows
-            dayMaxEvents={3}
+            dayMaxEvents={false}
+            eventOverlap={false}
+            slotEventOverlap={false}
             nowIndicator
             selectable
             selectMirror
@@ -301,12 +309,14 @@ export function CalendarView() {
 
           <div className="day-events">
             {selectedEvents.length ? (
-              selectedEvents.map((event) => (
+              selectedEvents.map((event) => {
+                const style = eventCategoryStyle(categoryColors, event.type);
+                return (
                 <div
                   className={`day-event${isExamType(event.type) ? ' exam' : event.type === 'custom' ? ' custom' : ''}${event.source === 'system' ? ' system' : ''}`}
                   key={event.id}
                 >
-                  <span className="day-event-bar" />
+                  <span className="day-event-bar" style={{ background: style.background }} />
                   <button
                     type="button"
                     className="day-event-main"
@@ -321,7 +331,10 @@ export function CalendarView() {
                   >
                     <span className="day-event-title">{event.title}</span>
                     <span className="day-event-meta">
-                      {categoryLabel(event.type)} · {event.allDay ? '全日' : formatTime(event.start)}
+                      <span className="event-category-tag" style={{ background: style.background, color: style.text }}>
+                        {style.label}
+                      </span>
+                      {event.allDay ? '全日' : formatTime(event.start)}
                       {event.paper ? ` · ${event.paper}` : ''}
                       {event.rrule ? ' · 重複' : ''}
                       {event.source === 'system' ? ' · 官方唯讀' : ''}
@@ -348,7 +361,8 @@ export function CalendarView() {
                     <Icon name="chevron-right" size={13} />
                   </span>
                 </div>
-              ))
+                );
+              })
             ) : (
               <div className="empty" style={{ minHeight: 100, padding: 18 }}>
                 <div className="empty-copy">這一日沒有考試或事件。</div>

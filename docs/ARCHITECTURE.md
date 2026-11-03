@@ -96,10 +96,12 @@ userCalendarEvents/{uid}__{eventId}
   externalId, etag, updatedAt, deleted
 
 calendarSyncConfig/{uid}
-  googleConnected, googleCalendarId, lastSyncAt, lastError, icalUrls[], updatedAt
+  googleConnected, googleCalendarId, lastSyncAt, lastError, icalUrls[],
+  icalProxyUrl, updatedAt
 
 userPreferences/{uid}
-  themeMode(system|octavarium|train), theme(light|dark), texture, updatedAt
+  themeMode(system|octavarium|train), theme(light|dark), texture,
+  categoryColors{dse,mock,schoolSba,study,custom}, updatedAt
 
 systemExams/{year}
   year, source, label, events[], timezone, referenceUrl, updatedAt
@@ -190,7 +192,7 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 - `src/lib/googleCalendar.ts` owns the Calendar API calls and the sessionStorage OAuth token. `connectGoogleCalendar()` in `firebase.ts` requests `calendar.events` only from the explicit connect button; normal Google login does not request Calendar.
 - `syncGoogleNow()` pulls `primary` events for the surrounding two years, upserts them into `userCalendarEvents` with deterministic IDs, removes Google events that disappeared inside that window, and pushes local Google events that have no `externalId` yet.
-- `src/lib/calendarSync.ts` imports a public `.ics` URL through the existing `ical.js` parser. Imported events use `source: 'ics'` and are never written back to Apple. CORS is the main browser limitation.
+- `src/lib/calendarSync.ts` detects whether the pasted text is a URL or raw `BEGIN:VCALENDAR` source. It strips BOM/zero-width characters/extra whitespace, converts `webcal://`, removes tracking parameters, and optionally retries through a user-supplied CORS proxy. Imported events use `source: 'ics'` and are never written back to Apple.
 - `AppContext` keeps local events in `data.events` and synced Google/iCal mirrors in `data.syncedEvents`; `allEvents` merges both for FullCalendar. Synced edits/deletes route to `userCalendarEvents` and (for Google) the API.
 - Manual sync only; the panel enforces a 60-second cooldown. `calendarSyncConfig` stores only connection metadata, never the access token.
 
@@ -214,7 +216,7 @@ Users store only `hiddenSystemExamIds`; they never mutate the system dataset. Ad
 - **Train of Thought** — light stone/mist (`#94979A`, `#C6C8C9`, ink `#222222`); recommended dark `#121212` / `#2B2B2B` / `#E6E6E6` / `#E2E2E2`.
 - **Follow system** — Octavarium palette with `prefers-color-scheme` deciding light/dark.
 
-`src/lib/theme.ts` stores `{ mode, appearance, texture }` locally and applies `data-skin`, `data-theme` and `data-texture` to `<html>`. Signed-in users also read/write `userPreferences/{uid}`. A `matchMedia` listener updates the resolved theme while in system mode. The low-opacity texture layers are pseudo-elements and never intercept pointer events.
+`src/lib/theme.ts` stores `{ mode, appearance, texture, categoryColors }` locally and applies `data-skin`, `data-theme` and `data-texture` to `<html>`. Signed-in users also read/write `userPreferences/{uid}`. A `matchMedia` listener updates the resolved theme while in system mode. Category colours are user data used by inline calendar bars and tags, so switching skins never overwrites them; text contrast is calculated from each hex colour.
 
 Module-2 surfaces expose their own `--focus-*` / `--winner-*` variables; Train overrides those variable values from global CSS only. No module-2 component code is changed.
 

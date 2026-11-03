@@ -12,6 +12,7 @@ import type { User } from 'firebase/auth';
 import type {
   AppData,
   CalendarEvent,
+  CategoryColors,
   Checkin,
   LeaderboardMetric,
   Profile,
@@ -56,6 +57,7 @@ import {
   syncLeaderboardDoc,
 } from '../lib/cloudModeB';
 import { firebaseConfigured, observeAuth, signInWithGoogle, signOutOfGoogle } from '../lib/firebase';
+import { presetColors } from '../lib/categoryColors';
 import {
   applyThemePreference,
   getStoredThemePreference,
@@ -110,6 +112,8 @@ interface AppContextValue {
   setThemeMode: (mode: ThemeMode) => void;
   themeTexture: boolean;
   setThemeTexture: (enabled: boolean) => void;
+  categoryColors: CategoryColors;
+  setCategoryColors: (colors: CategoryColors) => void;
   toasts: Toast[];
   showToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
@@ -217,10 +221,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback(
     (next: Theme) => {
+      const lightPreset = presetColors('light');
+      const darkPreset = presetColors('dark');
+      const currentColors = themePreference.categoryColors;
+      const matchesLight = Object.keys(lightPreset).every((key) => currentColors[key as keyof typeof lightPreset] === lightPreset[key as keyof typeof lightPreset]);
+      const matchesDark = Object.keys(darkPreset).every((key) => currentColors[key as keyof typeof darkPreset] === darkPreset[key as keyof typeof darkPreset]);
       commitTheme({
         ...themePreference,
         mode: themePreference.mode === 'system' ? 'octavarium' : themePreference.mode,
         appearance: next,
+        categoryColors: next === 'dark' && matchesLight
+          ? darkPreset
+          : next === 'light' && matchesDark
+            ? lightPreset
+            : currentColors,
       });
     },
     [commitTheme, themePreference],
@@ -233,6 +247,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setThemeTexture = useCallback(
     (enabled: boolean) => commitTheme({ ...themePreference, texture: enabled }),
+    [commitTheme, themePreference],
+  );
+
+  const setCategoryColors = useCallback(
+    (colors: CategoryColors) => commitTheme({ ...themePreference, categoryColors: colors }),
     [commitTheme, themePreference],
   );
 
@@ -987,6 +1006,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setThemeMode,
     themeTexture: themePreference.texture,
     setThemeTexture,
+    categoryColors: themePreference.categoryColors,
+    setCategoryColors,
     toasts,
     showToast,
     dismissToast,

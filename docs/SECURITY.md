@@ -29,8 +29,8 @@ Source of truth: [../firestore.rules](../firestore.rules).
 | `leaderboardWinner/{weekKey}__{uid}` | signed-in | owner writes own card with `imageStatus` pending/none/rejected; **admin only** approves/rejects and writes approved `imageData`; owner/admin delete |
 | `winnerCardSubmissions/{weekKey}__{uid}` | owner + admin | owner writes pending/rejected data URL; admin can delete; never public |
 | `userCalendarEvents/{uid}__{eventId}` | own | own, validated `eventShape()` with `uid == auth.uid` |
-| `calendarSyncConfig/{uid}` | own | own, connection metadata only; access token never stored |
-| `userPreferences/{uid}` | own | own, `themeMode` / `theme` / `texture` only |
+| `calendarSyncConfig/{uid}` | own | own, connection metadata + optional iCal proxy URL; access token never stored |
+| `userPreferences/{uid}` | own | own, theme fields + five category colours only |
 | `systemExams/{year}` | public read | admin only, validated UTC+8 shape |
 | `admins/{uid}` | own only | **deny** (manual console setup) |
 | legacy Worker paths | deny | deny |
@@ -50,9 +50,9 @@ Source of truth: [../firestore.rules](../firestore.rules).
 
 - Google Calendar is called from the browser with a short-lived access token stored only in `sessionStorage`. No refresh token, client secret or token is written to Firestore.
 - `userCalendarEvents` is queried with `where('uid', '==', auth.uid)` and rules allow only the owner to read/write. The document ID includes the uid to prevent collisions between users importing the same Google event.
-- `calendarSyncConfig` holds only `googleConnected`, `lastSyncAt`, `lastError` and `icalUrls`; the token is never persisted.
-- `userPreferences` holds only the theme mode, light/dark appearance and texture flag. It is readable/writable by the owner only.
-- iCal URLs are user-supplied; the client fetches them directly. No server-side proxy bypasses CORS.
+- `calendarSyncConfig` holds only `googleConnected`, `lastSyncAt`, `lastError`, `icalUrls` and an optional `icalProxyUrl`; the token is never persisted.
+- `userPreferences` holds only the theme mode, light/dark appearance, texture flag and five validated hex category colours. It is readable/writable by the owner only.
+- iCal source text can be pasted directly and is never stored; URL imports are user-supplied and fetched directly. No server-side proxy bypasses CORS; an optional user-configured proxy is used only after a direct browser fetch fails.
 
 ### Check-in proof
 

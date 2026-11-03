@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CalendarEvent, CalendarSyncConfig, Subject } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { importIcalUrl, loadCalendarSyncConfig, saveCalendarConfig, syncGoogleNow } from '../lib/calendarSync';
+import { importIcalInput, loadCalendarSyncConfig, saveCalendarConfig, syncGoogleNow } from '../lib/calendarSync';
 import { clearGoogleToken, connectCalendar, hasGoogleCalendarToken } from '../lib/googleCalendar';
 import { Icon } from './Icons';
 
@@ -23,7 +23,8 @@ export function CalendarSyncPanel({
   const { showToast } = useApp();
   const [config, setConfig] = useState<CalendarSyncConfig | null>(null);
   const [busy, setBusy] = useState<'connect' | 'sync' | 'ical' | 'disconnect' | null>(null);
-  const [icalUrl, setIcalUrl] = useState('');
+  const [icalInput, setIcalInput] = useState('');
+  const [icalProxy, setIcalProxy] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function CalendarSyncPanel({
       .then((next) => {
         if (cancelled) return;
         setConfig(next);
+        setIcalProxy(next.icalProxyUrl || '');
         onGoogleAvailability(next.googleConnected && hasGoogleCalendarToken());
       })
       .catch(() => {
@@ -103,14 +105,14 @@ export function CalendarSyncPanel({
       showToast('請先登入再匯入 iCal。', 'error');
       return;
     }
-    if (!icalUrl.trim()) {
-      setError('請輸入公開 .ics URL。');
+    if (!icalInput.trim()) {
+      setError('請貼上 .ics 網址或完整 iCalendar 內容。');
       return;
     }
     setBusy('ical');
     setError('');
     try {
-      const result = await importIcalUrl(icalUrl, uid, subjects);
+      const result = await importIcalInput(icalInput, uid, subjects, icalProxy);
       await onRefresh();
       const next = await loadCalendarSyncConfig(uid);
       setConfig(next);
@@ -192,19 +194,35 @@ export function CalendarSyncPanel({
             <strong>Apple iCal</strong>
             <span className="tiny muted">只讀匯入</span>
           </div>
-          <div className="help">貼上公開 .ics 訂閱 URL；事件會加入日曆，但網站修改不會寫回 Apple。</div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
+          <div className="help">
+            支援兩種輸入：<strong>公開 .ics 網址</strong>，或直接貼上由 <code>BEGIN:VCALENDAR</code> 開始的完整原始碼。
+            只會單向匯入；網站修改／刪除不會寫回 Apple。
+          </div>
+          <textarea
+            className="textarea"
+            value={icalInput}
+            onChange={(input) => setIcalInput(input.target.value)}
+            placeholder={'https://…/calendar.ics\n\n或\n\nBEGIN:VCALENDAR\nVERSION:2.0\n…\nEND:VCALENDAR'}
+            aria-label="iCal 網址或原始內容"
+            rows={5}
+            spellCheck={false}
+            style={{ width: '100%', minHeight: 110, fontFamily: 'var(--font-mono)', fontSize: 11 }}
+          />
+          <label className="field" style={{ margin: 0 }}>
+            <span className="label">CORS proxy（可選，Apple iCloud 用）</span>
             <input
               className="input"
-              value={icalUrl}
-              onChange={(input) => setIcalUrl(input.target.value)}
-              placeholder="https://…/calendar.ics"
-              aria-label="公開 .ics URL"
-              style={{ minWidth: 220, flex: '1 1 220px' }}
+              value={icalProxy}
+              onChange={(input) => setIcalProxy(input.target.value)}
+              placeholder="https://your-proxy.example/?url={url}"
+              spellCheck={false}
             />
+          </label>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-sm" onClick={() => void importIcal()} disabled={!uid || busy !== null}>
               {busy === 'ical' ? '匯入中…' : '匯入 iCal'}
             </button>
+            <span className="tiny muted">自動清理 BOM、多餘空白、webcal://、追蹤參數</span>
           </div>
           {config?.icalUrls?.length ? (
             <div className="help" style={{ wordBreak: 'break-all' }}>

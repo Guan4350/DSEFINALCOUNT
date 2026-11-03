@@ -119,8 +119,9 @@ Manual smoke checks after publishing:
 15. Email sign-in: create an account in Settings, verify it appears under Authentication → Users and that `users/{uid}` is created.
 16. Google Calendar: press **連接 Google Calendar**, accept the Calendar scope, then **立即同步**. Confirm Google events appear under `userCalendarEvents` and on FullCalendar.
 17. Create/edit/delete a website event with **同步到 Google Calendar** checked. Confirm the Google Calendar changes and the Firestore mirror. Delete an imported Google event and confirm it is removed from Google.
-18. Apple iCal: paste a public `.ics` URL, import, and confirm events appear with the iCal legend. Edit one; confirm no request is made to Apple.
+18. Apple iCal: test a `webcal://` URL, a normal `.ics` URL, and a pasted `BEGIN:VCALENDAR…END:VCALENDAR` source. Confirm events appear with the iCal legend and nothing is written back to Apple. If iCloud blocks CORS, set the optional proxy field and retry.
 19. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
+20. Calendar colours: change all five category colours in Settings, confirm full-width calendar bars, Dashboard horizon tags and the countdown card use them, then switch skin and confirm the colours do not reset.
 
 ### Indexes
 

@@ -241,7 +241,7 @@ service cloud.firestore {
 
     function calendarSyncConfigShape() {
       return request.resource.data.keys().hasOnly([
-        'googleConnected', 'googleCalendarId', 'lastSyncAt', 'lastError', 'icalUrls', 'updatedAt'
+        'googleConnected', 'googleCalendarId', 'lastSyncAt', 'lastError', 'icalUrls', 'icalProxyUrl', 'updatedAt'
       ])
         && request.resource.data.googleConnected is bool
         && request.resource.data.googleCalendarId is string
@@ -251,14 +251,32 @@ service cloud.firestore {
         && request.resource.data.lastError is string && request.resource.data.lastError.size() <= 500
         && request.resource.data.icalUrls is list
         && request.resource.data.icalUrls.size() <= 10
+        && request.resource.data.icalProxyUrl is string
+        && request.resource.data.icalProxyUrl.size() <= 1000
         && request.resource.data.updatedAt == request.time;
     }
 
+    function categoryColorsShape() {
+      return request.resource.data.categoryColors is map
+        && request.resource.data.categoryColors.keys().hasOnly(['dse', 'mock', 'schoolSba', 'study', 'custom'])
+        && request.resource.data.categoryColors.dse is string
+        && request.resource.data.categoryColors.dse.matches('^#[0-9A-Fa-f]{6}$')
+        && request.resource.data.categoryColors.mock is string
+        && request.resource.data.categoryColors.mock.matches('^#[0-9A-Fa-f]{6}$')
+        && request.resource.data.categoryColors.schoolSba is string
+        && request.resource.data.categoryColors.schoolSba.matches('^#[0-9A-Fa-f]{6}$')
+        && request.resource.data.categoryColors.study is string
+        && request.resource.data.categoryColors.study.matches('^#[0-9A-Fa-f]{6}$')
+        && request.resource.data.categoryColors.custom is string
+        && request.resource.data.categoryColors.custom.matches('^#[0-9A-Fa-f]{6}$');
+    }
+
     function userPreferencesShape() {
-      return request.resource.data.keys().hasOnly(['themeMode', 'theme', 'texture', 'updatedAt'])
+      return request.resource.data.keys().hasOnly(['themeMode', 'theme', 'texture', 'categoryColors', 'updatedAt'])
         && request.resource.data.themeMode in ['system', 'octavarium', 'train']
         && request.resource.data.theme in ['light', 'dark']
         && request.resource.data.texture is bool
+        && categoryColorsShape()
         && request.resource.data.updatedAt == request.time;
     }
 

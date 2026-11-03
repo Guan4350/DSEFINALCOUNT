@@ -3,6 +3,7 @@ import type { SemesterMode, SubjectCategory } from '../types';
 import { SUBJECT_CATEGORY_LABEL } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { DSE_2025_EVENTS, type SystemExamEvent } from '../data/dse2025';
+import { CATEGORY_LABEL, CATEGORY_ORDER, contrastText, presetColors } from '../lib/categoryColors';
 import { clampOffset, formatHKClock, formatOffset, offsetFromReference, useSecondTick } from '../lib/clock';
 import { isISODate } from '../lib/date';
 import { signInWithEmail, signUpWithEmail } from '../lib/firebase';
@@ -107,6 +108,8 @@ export function SettingsView() {
     setThemeMode,
     themeTexture,
     setThemeTexture,
+    categoryColors,
+    setCategoryColors,
     signIn,
     signOut,
     updateProfile,
@@ -538,6 +541,61 @@ export function SettingsView() {
             </div>
           </section>
 
+          <section className="card settings-section">
+            <div className="card-head">
+              <div>
+                <div className="eyebrow">Calendar palette</div>
+                <div className="card-title" style={{ marginTop: 5 }}>
+                  <Icon name="calendar" size={15} />
+                  日曆分類顏色
+                </div>
+              </div>
+              <span className="chip">獨立於主題</span>
+            </div>
+            <div className="setting-row col">
+              <div className="category-color-grid">
+                {CATEGORY_ORDER.map((key) => {
+                  const color = categoryColors[key];
+                  return (
+                    <label className="category-color-row" key={key}>
+                      <span className="category-color-name">{CATEGORY_LABEL[key]}</span>
+                      <span className="category-color-preview" style={{ background: color, color: contrastText(color) }}>
+                        {CATEGORY_LABEL[key]}
+                      </span>
+                      <input
+                        type="color"
+                        value={color}
+                        onChange={(input) => {
+                          const next = input.target.value.toUpperCase();
+                          setCategoryColors({ ...categoryColors, [key]: next } as typeof categoryColors);
+                        }}
+                        aria-label={`${CATEGORY_LABEL[key]} 顏色`}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setCategoryColors(presetColors('light'))}
+                >
+                  套用淺色預設
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setCategoryColors(presetColors('dark'))}
+                >
+                  套用深色預設
+                </button>
+              </div>
+              <div className="help">
+                分類色會套用到日曆事件條、Dashboard 標籤及倒數卡；切換 Octavarium / Train of Thought 不會覆蓋你的自訂色。文字顏色會按亮度自動選黑或白，確保可讀。
+              </div>
+            </div>
+          </section>
 
           <section className="card settings-section">
             <div className="card-head">

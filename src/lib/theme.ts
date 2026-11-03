@@ -1,4 +1,5 @@
 import type { Theme, ThemeMode, ThemePreference } from '../types';
+import { LIGHT_CATEGORY_COLORS, normalizeCategoryColors } from './categoryColors';
 
 export type { Theme, ThemeMode, ThemePreference };
 
@@ -9,6 +10,7 @@ export const DEFAULT_THEME_PREFERENCE: ThemePreference = {
   mode: 'octavarium',
   appearance: 'light',
   texture: true,
+  categoryColors: { ...LIGHT_CATEGORY_COLORS },
 };
 
 export function getSystemAppearance(): Theme {
@@ -29,7 +31,12 @@ export function normalizeThemePreference(input: unknown): ThemePreference {
   const value = input as Partial<ThemePreference>;
   const mode: ThemeMode = value.mode === 'system' || value.mode === 'train' ? value.mode : 'octavarium';
   const appearance: Theme = value.appearance === 'dark' ? 'dark' : 'light';
-  return { mode, appearance, texture: value.texture !== false };
+  return {
+    mode,
+    appearance,
+    texture: value.texture !== false,
+    categoryColors: normalizeCategoryColors(value.categoryColors, appearance),
+  };
 }
 
 export function getStoredThemePreference(): ThemePreference {
@@ -45,6 +52,7 @@ export function getStoredThemePreference(): ThemePreference {
     return {
       ...DEFAULT_THEME_PREFERENCE,
       appearance: legacy === 'dark' ? 'dark' : 'light',
+      categoryColors: normalizeCategoryColors(undefined, legacy === 'dark' ? 'dark' : 'light'),
     };
   } catch {
     return { ...DEFAULT_THEME_PREFERENCE };

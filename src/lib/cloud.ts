@@ -31,6 +31,7 @@ import type {
   TimerSession,
 } from '../types';
 import { addDays, todayISO } from './date';
+import { normalizeCategoryColors } from './categoryColors';
 import { db, firebaseConfigured } from './firebase';
 import type { ActiveTimerState } from './activeTimer';
 import { recordUsage } from './usage';
@@ -447,6 +448,7 @@ export async function fetchCalendarSyncConfig(uid: string): Promise<CalendarSync
     icalUrls: Array.isArray(data.icalUrls)
       ? data.icalUrls.filter((item): item is string => typeof item === 'string')
       : [],
+    icalProxyUrl: asString(data.icalProxyUrl) || undefined,
     updatedAt: timestampToISO(data.updatedAt),
   };
 }
@@ -459,6 +461,7 @@ export async function saveCalendarSyncConfig(uid: string, config: CalendarSyncCo
     lastSyncAt: config.lastSyncAt || '',
     lastError: config.lastError || '',
     icalUrls: config.icalUrls.slice(0, 10),
+    icalProxyUrl: config.icalProxyUrl || '',
     updatedAt: serverTimestamp(),
   });
   recordUsage(0, 1);
@@ -470,10 +473,12 @@ export async function fetchUserPreferences(uid: string): Promise<ThemePreference
   recordUsage(1, 0);
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
+  const appearance = data.theme === 'dark' ? 'dark' : 'light';
   return {
     mode: data.themeMode === 'system' || data.themeMode === 'train' ? data.themeMode : 'octavarium',
-    appearance: data.theme === 'dark' ? 'dark' : 'light',
+    appearance,
     texture: data.texture !== false,
+    categoryColors: normalizeCategoryColors(data.categoryColors, appearance),
   };
 }
 
@@ -483,6 +488,7 @@ export async function saveUserPreferences(uid: string, preference: ThemePreferen
     themeMode: preference.mode,
     theme: preference.appearance,
     texture: preference.texture,
+    categoryColors: preference.categoryColors,
     updatedAt: serverTimestamp(),
   });
   recordUsage(0, 1);

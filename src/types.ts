@@ -10,11 +10,17 @@ export type ThemeMode = 'system' | 'octavarium' | 'train';
 
 export type Theme = 'light' | 'dark';
 
+export type CalendarCategory = 'dse' | 'mock' | 'schoolSba' | 'study' | 'custom';
+
+export type CategoryColors = Record<CalendarCategory, string>;
+
 export interface ThemePreference {
   mode: ThemeMode;
   /** Manual light/dark choice used by Octavarium/Train; System ignores it. */
   appearance: Theme;
   texture: boolean;
+  /** User-owned calendar category colours; never overridden by a theme switch. */
+  categoryColors: CategoryColors;
 }
 
 export interface CalendarSyncConfig {
@@ -23,6 +29,7 @@ export interface CalendarSyncConfig {
   lastSyncAt?: string;
   lastError?: string;
   icalUrls: string[];
+  icalProxyUrl?: string;
   updatedAt?: string;
 }
 

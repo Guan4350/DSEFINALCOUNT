@@ -106,19 +106,120 @@ export interface IcalImportResult {
   warnings: string[];
 }
 
-export async function importIcalUrl(url: string, uid: string, subjects: Subject[]): Promise<IcalImportResult> {
-  const clean = url.trim().replace(/^webcal:\/\//i, 'https://');
-  if (!/^https?:\/\//i.test(clean)) throw new Error('請輸入 http(s) 公開 .ics URL。');
-  let response: Response;
-  try {
-    response = await fetch(clean, { headers: { Accept: 'text/calendar,text/plain,*/*' } });
-  } catch {
-    throw new Error('瀏覽器無法讀取此 .ics（通常是 CORS 限制）。請使用允許跨域讀取的公開訂閱 URL。');
+export type IcalInputKind = 'url' | 'raw';
+
+export interface SanitizedIcalInput {
+  kind: IcalInputKind;
+  value: string;
+  sourceUrl?: string;
+}
+
+const TRACKING_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+
+function cleanRawIcal(input: string): string {
+  return input
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/g, ''))
+    .filter((line) => line.trim().length > 0)
+    .join('\n')
+    .trim();
+}
+
+function cleanUrlInput(input: string): string {
+  const stripped = input
+    .trim()
+    .replace(/^[<"'`]+|[>"'`]+$/g, '')
+    .trim()
+    .replace(/^webcal:\/\//i, 'https://');
+  const url = new URL(stripped);
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('只支援 http(s) 或 webcal:// 的 .ics 網址。');
   }
-  if (!response.ok) throw new Error(`讀取 .ics 失敗（HTTP ${response.status}）。`);
-  const text = await response.text();
-  if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('這個 URL 不是有效的 iCalendar 檔案。');
+  for (const key of Array.from(url.searchParams.keys())) {
+    if (TRACKING_PARAMS.includes(key.toLowerCase())) url.searchParams.delete(key);
+  }
+  url.hash = '';
+  return url.toString();
+}
+
+/**
+ * Detect pasted raw iCalendar or a URL, strip BOM/zero-width characters,
+ * remove trailing whitespace and tracking params, and convert webcal://.
+ */
+export function sanitizeIcalInput(input: string): SanitizedIcalInput {
+  let text = input.replace(/^\uFEFF/, '').trim();
+  if (!text) throw new Error('請貼上 .ics 網址或完整 iCalendar 內容。');
+  if (/^```(?:ics|ical|text)?\s*/i.test(text)) {
+    text = text.replace(/^```(?:ics|ical|text)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  }
+  if (/<html|<!doctype html/i.test(text.slice(0, 400))) {
+    throw new Error('呢段內容似係網頁 HTML，唔係 .ics。請貼上原始 iCalendar 或訂閱網址。');
+  }
+  if (/BEGIN:VCALENDAR/i.test(text)) {
+    return { kind: 'raw', value: cleanRawIcal(text) };
+  }
+  try {
+    const value = cleanUrlInput(text);
+    return { kind: 'url', value, sourceUrl: value };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('只支援')) throw error;
+    throw new Error('無法辨識輸入。請貼上 https://…/calendar.ics 或由 BEGIN:VCALENDAR 開始的完整內容。');
+  }
+}
+
+function proxyUrl(base: string, target: string): string {
+  if (base.includes('{url}')) return base.replace('{url}', encodeURIComponent(target));
+  return `${base}${base.includes('?') ? '&' : '?'}url=${encodeURIComponent(target)}`;
+}
+
+async function fetchIcalText(url: string, proxy?: string): Promise<string> {
+  const read = async (target: string): Promise<string> => {
+    const response = await fetch(target, {
+      headers: { Accept: 'text/calendar,text/plain,*/*' },
+      mode: 'cors',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.text();
+  };
+
+  let text: string;
+  try {
+    text = await read(url);
+  } catch (directError) {
+    if (!proxy?.trim()) {
+      throw new Error(
+        '瀏覽器無法直接讀取此 .ics（通常是 Apple iCloud 的 CORS 攔截）。請改貼完整 .ics 原始內容，或設定相容 CORS proxy。',
+      );
+    }
+    try {
+      text = await read(proxyUrl(proxy.trim(), url));
+    } catch (proxyError) {
+      const detail = proxyError instanceof Error ? proxyError.message : String(proxyError);
+      throw new Error(`直接讀取及 CORS proxy 都失敗（${detail}）。請改貼完整 .ics 原始內容。`);
+    }
+  }
+  const cleaned = cleanRawIcal(text);
+  if (!/BEGIN:VCALENDAR/i.test(cleaned)) {
+    throw new Error('呢個來源唔係有效 iCalendar（搵唔到 BEGIN:VCALENDAR）。');
+  }
+  return cleaned;
+}
+
+async function importIcalText(
+  text: string,
+  uid: string,
+  subjects: Subject[],
+  sourceUrl?: string,
+  proxy?: string,
+): Promise<IcalImportResult> {
   const parsed = parseIcs(text, subjects);
+  if (parsed.events.length === 0) {
+    const detail = parsed.warnings.slice(0, 2).join(' ') || '沒有找到 VEVENT。';
+    throw new Error(`iCal 解析失敗：${detail}`);
+  }
   let imported = 0;
   for (const event of parsed.events.slice(0, 1000)) {
     const externalId = event.uid || `${event.title}-${event.start}`;
@@ -135,8 +236,30 @@ export async function importIcalUrl(url: string, uid: string, subjects: Subject[
   }
   const current = await loadCalendarSyncConfig(uid);
   await saveCalendarConfig(uid, {
-    icalUrls: Array.from(new Set([...current.icalUrls, clean])).slice(-10),
+    icalUrls: sourceUrl
+      ? Array.from(new Set([...current.icalUrls, sourceUrl])).slice(-10)
+      : current.icalUrls,
+    icalProxyUrl: proxy?.trim() || current.icalProxyUrl || '',
     lastError: parsed.warnings[0] || '',
   });
   return { imported, warnings: parsed.warnings };
+}
+
+export async function importIcalInput(
+  input: string,
+  uid: string,
+  subjects: Subject[],
+  proxy?: string,
+): Promise<IcalImportResult> {
+  const sanitized = sanitizeIcalInput(input);
+  if (sanitized.kind === 'raw') {
+    return importIcalText(sanitized.value, uid, subjects, undefined, proxy);
+  }
+  const text = await fetchIcalText(sanitized.value, proxy);
+  return importIcalText(text, uid, subjects, sanitized.sourceUrl, proxy);
+}
+
+/** Backwards-compatible wrapper for URL-only callers. */
+export async function importIcalUrl(url: string, uid: string, subjects: Subject[]): Promise<IcalImportResult> {
+  return importIcalInput(url, uid, subjects);
 }
