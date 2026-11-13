@@ -38,7 +38,7 @@
 
 讀寫分離原則：
 
-- **讀**：已發佈（`status == "published"`）的樹與節點由客戶端直接讀 Firestore，省 Function 冷啟動；Rules 限制只可讀已發佈版本。
+- **讀**：`published` 與 `archived` 的樹與節點由客戶端直接讀 Firestore，省 Function 冷啟動；`draft` 只有 admin 可讀。
 - **寫**：一律經 Callable Function，Function 內做 schema 校驗、圖校驗、權限檢查與交易寫入。
 - **敏感邏輯**：前置解鎖判定、加權完成度、跨樹查重、環檢測全部在伺服器端，前端只顯示結果。
 
@@ -52,7 +52,7 @@ focus_trees/{treeId}
   subject: string               // 必須等於所有節點的 subject
   exam_year: number             // 例：2027
   schema_version: "1.0"
-  status: "draft" | "published" | "archived"
+  status: "draft" | "published" | "publishing" | "archived"   // publishing 僅發佈交易期間短暫存在
   root_node_ids: string[]       // 入口節點，必須存在且無硬前置
   node_count: number
   total_weight: number          // 分母來源，本 4 節點 = 17
@@ -68,6 +68,8 @@ focus_trees/{treeId}
 
 - 同一 subject **允許多棵樹**，以 `exam_year` 區分；`(subject, exam_year)` 全庫唯一，由發佈流程以查詢 + 交易保證。
 - 舊年份樹改為 `status: "archived"` 保留，不刪除（歷史進度仍可回溯）。
+- **`archived` 的進度為唯讀**：`focusProgressSet`、`focusProgressReset`、`focusTreePublish` 一律回 `E_TREE_ARCHIVED`；`focusProgressGet` 仍可讀，完成度依既有進度計算。
+- 狀態轉移只有：`draft → published`（publish）、`published → archived`（archive）；`archived` 為終態，不提供 unarchive。新年度請建新樹（可從舊樹複製節點後再改）。
 - 學習者進度與樹綁定（`user_focus_progress/.../nodes/{treeId__nodeId}`），**不同年份的樹互不影響**。
 - 發佈硬閘門：`mr_note` 不得為空，沒有開關可關閉（見第 7 節）。
 
@@ -144,8 +146,10 @@ audit_logs/{logId}
 - 重置 = **刪除**對應的進度文件，回到「未開始」；解鎖狀態即時重算。
 - **級聯失效**：節點 X 被重置後，所有以 X 為硬前置（含遞迴下游）且已有進度的節點一併重置，預設 `cascade: true`。否則會出現「前置未掌握但下游已 mastered」的矛盾狀態。
 - 重置只作用於指定 `treeId`；同一 subject 的其他年份樹不受影響。
+- **`archived` 樹不可重置**：回 `E_TREE_ARCHIVED`（唯讀是連管理員一起限制，避免歷史進度被改寫）。
 - 管理介面流程：先 `dryRun` 取得受影響清單，人工確認後才送出 `dryRun: false`；API 不強制兩段式，供維運腳本使用。
-- 重置寫入 `audit_logs`（actor、uid、treeId、被刪節點清單）。
+- **批次**：一次可重置多個 uid/email（上限 200 人、5,000 份進度）；先全部解析與讀取，strict 模式下任一帳號無效即整批中止。
+- 重置寫入 `audit_logs`（actor、uid 清單、treeId、刪除數量），單次呼叫一筆 `focus_progress.reset.bulk`。
 
 ## 4. 節點欄位規格與校驗規則
 
@@ -192,8 +196,11 @@ audit_logs/{logId}
   }>
   unlockedNodeIds: string[]              // 硬前置全 mastered
   lockedReasons: Record<string, string[]> // nodeId -> 未 mastered 的前置 id
+  readOnly: boolean                      // tree.status == "archived"
 }
 ```
+
+`published` 與 `archived` 皆可讀；`archived` 回 `readOnly: true`，前端據此停用操作按鈕。
 
 ### 5.2 `focusProgressSet`（callable）
 
@@ -207,8 +214,9 @@ audit_logs/{logId}
 
 規則：
 
+- 僅 `status == "published"` 的樹可寫；`archived` 回 `E_TREE_ARCHIVED`，`draft` 回 `E_TREE_NOT_PUBLISHED`。
 - `mastered` 為終態；由使用者發起的請求不可降級（管理員另走 `focusProgressReset`）。
-- 設為 `mastered` 前，伺服器必須確認所有硬前置已 `mastered`，否則 `E_PREREQUISITE_NOT_MET`（details 列出缺哪幾個）。
+- 任何進度寫入（`in_progress` 或 `mastered`）前，伺服器都必須確認硬前置已全部 `mastered`，否則 `E_PREREQUISITE_NOT_MET`（details 列出缺哪幾個）。
 - 寫入成功後重算加權百分比並回傳，前端不需自行計算。
 
 ### 5.3 `focusTreeValidate`（admin，dry-run）
@@ -239,56 +247,109 @@ audit_logs/{logId}
 { treeId: string; importId: string; expectedVersion: number }
 
 // 出參
-{ treeId: string; version: number; nodeCount: number; totalWeight: number; checksum: string; publishedAt: string }
+{ treeId: string; version: number; nodeCount: number; totalWeight: number; checksum: string }
 ```
 
 驗證：
 
-1. `importId` 存在且 `status == "approved"`，`approved_by == caller.uid`。
+1. `importId` 存在且 `status == "approved"`，`approved_by == caller.uid`；`tree.status != "archived"`，否則 `E_TREE_ARCHIVED`。
 2. `payload_hash` 與核准時一致（防止確認後替換內容）。
 3. `tree.version == expectedVersion`，否則 `E_VERSION_CONFLICT`。
 4. 重新執行完整校驗（伺服器為準，不信任 dry-run 結果），且 **`mr_note` 全部非空**，否則 `E_MR_NOTE_MISSING`（details 列出 nodeId）。
-5. 交易內寫入；超過 400 節點時改用分塊批次 + `status: "publishing"` 兩階段（見第 7 節）。
+5. 交易內寫入；單次上限 400 節點，超過回 `E_TREE_TOO_LARGE`。兩階段 `publishing` 尚未實作。
+6. 不支援刪除節點：`diff.removed` 非空即回 `E_NODE_REMOVAL_UNSUPPORTED`，需改用新年度樹。
+
+### 5.4.1 `focusTreeApprove`（admin）
+
+```ts
+// 入參
+{ treeId: string; importId: string }
+
+// 出參
+{ importId: string; status: "approved"; nodeCount: number }
+```
+
+- 只接受 `status == "dry_run"` 且 `report.ok == true` 的 import。
+- 核准時重算 `payload_hash`，不一致回 `E_IMPORT_HASH_MISMATCH`。
+- `approved_by` 記錄呼叫者；`focusTreePublish` 目前要求同一人執行。
 
 ### 5.5 `focusProgressReset`（admin）
 
 ```ts
 // 入參
 {
-  uid?: string            // 二選一
-  email?: string          // 二選一，伺服器用 Admin Auth 解析
   treeId: string
-  nodeIds?: string[]      // 省略 = 該樹全部節點
-  cascade?: boolean       // 預設 true：連帶重置硬前置下游
-  dryRun?: boolean        // 預設 false；true 只回報，不刪除
+  uids?: string[]          // 與 emails 合併去重，上限 200
+  emails?: string[]        // 伺服器解析為 uid
+  nodeIds?: string[]       // 省略 = 該樹全部節點
+  cascade?: boolean        // 預設 true：連帶重置硬前置下游
+  dryRun?: boolean         // 預設 false；true 只回報，不刪除
+  strict?: boolean         // 預設 true：任一 uid/email 解析失敗即整批中止
 }
 
 // 出參
 {
   dryRun: boolean
-  uid: string
   treeId: string
-  nodeIds: string[]       // 實際作用範圍（已含級聯）
-  affected: Array<{ nodeId: string; status: string; masteredAt: string | null }>
-  deleted?: number        // dryRun=true 時不提供
+  nodeIds: string[]        // 實際作用範圍（含級聯）
+  users: Array<{
+    uid: string
+    email: string | null
+    affected: Array<{ nodeId: string; status: string; masteredAt: string | null }>
+    deleted: number
+  }>
+  skipped: Array<{ input: string; code: string }>   // strict=false 時才可能非空
+  totals: { users: number; affectedDocs: number; deleted: number }
 }
 ```
 
 ```ts
 // functions/src/focus-tree/reset.ts（節錄）
+const MAX_USERS = 200;
+const MAX_DOCS = 5000;
+
 export const focusProgressReset = onCall({ region: REGION }, async (request) => {
   const actor = request.auth?.uid;
   await assertAdmin(actor);
 
-  const { uid, email, treeId, nodeIds, cascade = true, dryRun = false } = request.data ?? {};
-  if (!treeId || (!uid && !email)) {
-    throw new HttpsError('invalid-argument', 'E_MISSING_FIELD', { fields: ['treeId', 'uid|email'] });
+  const {
+    treeId, uids = [], emails = [], nodeIds,
+    cascade = true, dryRun = false, strict = true,
+  } = request.data ?? {};
+  if (!treeId || (uids.length === 0 && emails.length === 0)) {
+    throw new HttpsError('invalid-argument', 'E_MISSING_FIELD', { fields: ['treeId', 'uids|emails'] });
   }
-  const targetUid = uid ?? (await getAuth().getUserByEmail(email)).uid;
 
+  // 1. 先解析全部使用者；strict 模式下任何失敗即整批中止
+  const resolved = new Map<string, string | null>();
+  const failures: Array<{ input: string; code: string }> = [];
+  for (const uid of uids) resolved.set(uid, null);
+  for (const email of emails) {
+    try {
+      const user = await getAuth().getUserByEmail(email);
+      if (!resolved.has(user.uid)) resolved.set(user.uid, user.email ?? null);
+    } catch {
+      failures.push({ input: email, code: 'E_USER_NOT_FOUND' });
+    }
+  }
+  if (strict && failures.length > 0) {
+    throw new HttpsError('not-found', 'E_USER_NOT_FOUND', { failures });
+  }
+  if (resolved.size === 0) {
+    throw new HttpsError('invalid-argument', 'E_MISSING_FIELD', { field: 'uids' });
+  }
+  if (resolved.size > MAX_USERS) {
+    throw new HttpsError('invalid-argument', 'E_TOO_MANY_USERS', { max: MAX_USERS, got: resolved.size });
+  }
+  const skipped = strict ? [] : failures;
+
+  // 2. 讀樹、節點，建立級聯範圍
   const treeRef = db.doc(`focus_trees/${treeId}`);
   const treeSnap = await treeRef.get();
   if (!treeSnap.exists) throw new HttpsError('not-found', 'E_TREE_NOT_FOUND', { treeId });
+  if (treeSnap.get('status') === 'archived') {
+    throw new HttpsError('failed-precondition', 'E_TREE_ARCHIVED', { treeId });
+  }
 
   const nodes = (await treeRef.collection('nodes').get()).docs.map(d => d.data() as FocusNode);
   const known = new Set(nodes.map(n => n.id));
@@ -314,35 +375,71 @@ export const focusProgressReset = onCall({ region: REGION }, async (request) => 
     }
   }
 
-  const col = db.collection(`user_focus_progress/${targetUid}/nodes`);
-  const snaps = await Promise.all([...targets].map(id => col.doc(`${treeId}__${id}`).get()));
-  const affected = snaps.filter(s => s.exists).map(s => ({
-    nodeId: (s.data()!.node_id as string),
-    status: (s.data()!.status as string),
-    masteredAt: s.data()!.mastered_at?.toDate?.().toISOString() ?? null,
-  }));
+  // 3. 逐使用者讀取進度；先全部讀完，再決定刪除
+  const users: Array<{
+    uid: string; email: string | null;
+    affected: Array<{ nodeId: string; status: string; masteredAt: string | null }>;
+    deleted: number;
+  }> = [];
+  const deletes: Array<{ uid: string; progressId: string }> = [];
 
-  if (dryRun) {
-    return { dryRun: true, uid: targetUid, treeId, nodeIds: [...targets], affected };
+  for (const [uid, email] of resolved) {
+    const col = db.collection(`user_focus_progress/${uid}/nodes`);
+    const snaps = await Promise.all([...targets].map(id => col.doc(`${treeId}__${id}`).get()));
+    const affected = snaps.filter(s => s.exists).map(s => ({
+      nodeId: String(s.data()!.node_id),
+      status: String(s.data()!.status),
+      masteredAt: s.data()!.mastered_at?.toDate?.().toISOString() ?? null,
+    }));
+    users.push({ uid, email, affected, deleted: 0 });
+    if (!dryRun) {
+      for (const a of affected) deletes.push({ uid, progressId: `${treeId}__${a.nodeId}` });
+    }
   }
 
-  const ids = affected.map(a => `${treeId}__${a.nodeId}`);
-  for (let i = 0; i < ids.length; i += 400) {
+  const affectedDocs = users.reduce((n, u) => n + u.affected.length, 0);
+  if (affectedDocs > MAX_DOCS) {
+    throw new HttpsError('invalid-argument', 'E_RESET_LIMIT', { maxDocs: MAX_DOCS, got: affectedDocs });
+  }
+
+  const totals = { users: users.length, affectedDocs, deleted: 0 };
+  if (dryRun) {
+    return { dryRun: true, treeId, nodeIds: [...targets], users, skipped, totals };
+  }
+
+  // 4. 跨使用者分塊刪除（batch 可跨集合）
+  for (let i = 0; i < deletes.length; i += 400) {
     const batch = db.batch();
-    for (const id of ids.slice(i, i + 400)) batch.delete(col.doc(id));
+    for (const d of deletes.slice(i, i + 400)) {
+      batch.delete(db.doc(`user_focus_progress/${d.uid}/nodes/${d.progressId}`));
+    }
     await batch.commit();
   }
 
+  const byUid = new Map<string, number>();
+  for (const d of deletes) byUid.set(d.uid, (byUid.get(d.uid) ?? 0) + 1);
+  for (const u of users) u.deleted = byUid.get(u.uid) ?? 0;
+  totals.deleted = deletes.length;
+
   await db.collection('audit_logs').add({
-    actor, action: 'focus_progress.reset', tree_id: treeId, import_id: null,
+    actor, action: 'focus_progress.reset.bulk', tree_id: treeId, import_id: null,
     before_version: null, after_version: null,
-    payload_hash: sha256(JSON.stringify({ uid: targetUid, treeId, ids: ids.sort() })),
+    payload_hash: sha256(JSON.stringify({ treeId, uids: [...resolved.keys()].sort(), deleted: deletes.length })),
+    reset_uids: [...resolved.keys()],
+    reset_deleted: deletes.length,
     created_at: FieldValue.serverTimestamp(),
   });
 
-  return { dryRun: false, uid: targetUid, treeId, nodeIds: [...targets], affected, deleted: ids.length };
+  return { dryRun: false, treeId, nodeIds: [...targets], users, skipped, totals };
 });
 ```
+
+批量語義：
+
+- 先解析全部 uid/email、再讀進度、最後才刪除；strict 模式下任何帳號無效即整批中止，不會出現「刪了前 50 人、第 51 人失敗」的半套狀態。
+- 上限：200 人、5,000 份進度文件、單次呼叫；超出回 `E_TOO_MANY_USERS` / `E_RESET_LIMIT`，前端需分批。
+- `dryRun` 回傳每位使用者的 `affected` 與 `totals`，管理介面必須先預覽再執行。
+- 審計：一次呼叫寫一筆 `focus_progress.reset.bulk`，含 uid 清單與刪除數量。
 
 ### 5.6 `focusAdminLookupUser`（admin）
 
@@ -369,11 +466,27 @@ export const focusProgressReset = onCall({ region: REGION }, async (request) => 
 | `E_VERSION_CONFLICT` | 樂觀鎖失敗 |
 | `E_PREREQUISITE_NOT_MET` | 前置未掌握 |
 | `E_NODE_HAS_PROGRESS` | 刪除仍有學習者進度的節點 |
+| `E_TERMINAL_STATE` | 已 mastered 的節點不可由使用者降級 |
 | `E_NOT_APPROVED` | 未經人工核准即發佈 |
 | `E_MR_NOTE_MISSING` | 有節點 `mr_note` 為空，禁止發佈（details 列出 nodeId） |
 | `E_NOT_ADMIN` | 呼叫者非管理員 |
 | `E_TREE_NOT_FOUND` / `E_UNKNOWN_NODE` | 樹或節點不存在 |
-| `E_USER_NOT_FOUND` | email 查無帳號 |
+| `E_TREE_ARCHIVED` | 樹已封存，進度唯讀（進度寫入、重置、再發佈皆拒絕） |
+| `E_TREE_NOT_PUBLISHED` | 樹未發佈，不可寫入進度 |
+| `E_USER_NOT_FOUND` | 有 email 查無帳號（strict 批次中止） |
+| `E_TOO_MANY_USERS` | 單次重置超過 200 人 |
+| `E_RESET_LIMIT` | 單次重置超過 5,000 份進度文件 |
+| `E_EMPTY_TREE` | 節點陣列為空 |
+| `E_TREE_TOO_LARGE` | 單次匯入／發佈超過 400 節點 |
+| `E_SELF_REFERENCE` | 節點自引 |
+| `E_ROOT_MISMATCH` | 樹的 root_node_ids 與推導結果不同（warning） |
+| `E_DUPLICATE_CROSS_TREE` | 同 subject + 同 exam_year 的跨樹重複（warning） |
+| `E_MR_NOTE_PENDING` | mr_note 尚未回填（warning，發佈時轉 error） |
+| `E_IMPORT_NOT_FOUND` / `E_IMPORT_NOT_DRY_RUN` | import 不存在或狀態不符 |
+| `E_IMPORT_HASH_MISMATCH` | import 內容與核准時的 payload_hash 不一致 |
+| `E_TREE_MISMATCH` | import 不屬於該樹 |
+| `E_VALIDATION_FAILED` | 校驗未通過 |
+| `E_NODE_REMOVAL_UNSUPPORTED` | 發佈不允許刪除節點 |
 
 ## 6. 圖校驗與加權完成度
 
@@ -387,7 +500,7 @@ export const focusProgressReset = onCall({ region: REGION }, async (request) => 
 5. 弱前置解析：能對應到 id 的建立軟邊；否則視為外部標籤 → warning
 6. root 判定：無硬前置者；root_node_ids 必須是其子集
 7. 可達性：由 root 沿硬+軟邊下行，不可達 → orphan warning
-8. 跨樹查重：collection group nodes，僅比對**同 subject + 同 exam_year** 的其他樹，name/syllabus_ref 正規化後相等 → warning；跨年份重複屬預期，不告警
+8. 跨樹查重：列出同 subject 的樹，僅比對 **exam_year 相同**者，name/syllabus_ref 正規化後相等 → warning；跨年份重複屬預期，不告警
 9. 統計：node_count、total_weight、maxDepth
 ```
 
@@ -451,11 +564,11 @@ service cloud.firestore {
     }
 
     match /focus_trees/{treeId} {
-      allow read: if resource.data.status == 'published' || isAdmin();
+      allow read: if resource.data.status in ['published', 'archived'] || isAdmin();
 
       match /nodes/{nodeId} {
         allow read: if isAdmin()
-          || get(/databases/$(database)/documents/focus_trees/$(treeId)).data.status == 'published';
+          || get(/databases/$(database)/documents/focus_trees/$(treeId)).data.status in ['published', 'archived'];
         allow write: if false;
       }
       allow write: if false;
@@ -534,6 +647,7 @@ export interface ProgressSnapshot {
   items: Array<{ nodeId: string; weight: number; status: string; coefficient: number; masteredAt: string | null }>;
   unlockedNodeIds: string[];
   lockedReasons: Record<string, string[]>;
+  readOnly: boolean;
 }
 
 const call = <TReq, TRes>(name: string) => httpsCallable<TReq, TRes>(fns, name);
@@ -559,6 +673,7 @@ export const useFocusTree = defineStore('focusTree', {
     tree: null as null | Record<string, unknown>,
     nodes: [] as FocusNode[],
     percent: 0,
+    readOnly: false,
     items: new Map<string, { status: string; coefficient: number }>(),
     unlocked: new Set<string>(),
     reasons: {} as Record<string, string[]>,
@@ -574,8 +689,10 @@ export const useFocusTree = defineStore('focusTree', {
       this.loading = true; this.error = '';
       try {
         const treeSnap = await getDoc(doc(db, 'focus_trees', treeId));
-        if (!treeSnap.exists() || treeSnap.data().status !== 'published') throw new Error('樹未發佈');
-        this.treeId = treeId; this.tree = treeSnap.data();
+        const data = treeSnap.data();
+        if (!treeSnap.exists() || !data) throw new Error('樹不存在');
+        if (data.status !== 'published' && data.status !== 'archived') throw new Error('樹未發佈');
+        this.treeId = treeId; this.tree = data;
         const nodeSnap = await getDocs(collection(db, 'focus_trees', treeId, 'nodes'));
         this.nodes = nodeSnap.docs.map(d => d.data() as FocusNode);
         await this.refresh();
@@ -588,11 +705,13 @@ export const useFocusTree = defineStore('focusTree', {
     async refresh() {
       const snap = await getProgress(this.treeId);
       this.percent = snap.percent;
+      this.readOnly = snap.readOnly;
       this.items = new Map(snap.items.map(i => [i.nodeId, { status: i.status, coefficient: i.coefficient }]));
       this.unlocked = new Set(snap.unlockedNodeIds);
       this.reasons = snap.lockedReasons;
     },
     async mark(nodeId: string, status: 'in_progress' | 'mastered', evidence?: string) {
+      if (this.readOnly) throw new Error('此年份已封存，進度唯讀');
       const res = await setProgress({ treeId: this.treeId, nodeId, status, evidence });
       this.percent = res.percent;
       await this.refresh();
@@ -635,6 +754,8 @@ const statusLabel = computed(() => ({
 
 樹狀排版：前端由 `prerequisites` 計算最長路徑深度，節點按 depth 分欄，硬邊畫實線、軟邊畫虛線；4 節點規模不需要後端拓撲排序介面。
 
+`archived` 唯讀 UI：`focusProgressGet` 回 `readOnly: true` 時，樹頁顯示「此年份已封存，進度僅供查閱」橫幅，節點卡與 Drawer 的「開始 / 標記掌握」按鈕停用；完成度仍依既有進度顯示，不會因封存而歸零。
+
 ### 9.6 `admin-api.ts`
 
 ```ts
@@ -643,14 +764,26 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 const fns = getFunctions(undefined, 'asia-east1');
 
 export interface ResetInput {
-  uid?: string; email?: string; treeId: string;
-  nodeIds?: string[]; cascade?: boolean; dryRun?: boolean;
+  treeId: string;
+  uids?: string[];
+  emails?: string[];
+  nodeIds?: string[];
+  cascade?: boolean;
+  dryRun?: boolean;
+  strict?: boolean;
+}
+
+export interface ResetUserResult {
+  uid: string; email: string | null;
+  affected: Array<{ nodeId: string; status: string; masteredAt: string | null }>;
+  deleted: number;
 }
 
 export interface ResetResult {
-  dryRun: boolean; uid: string; treeId: string; nodeIds: string[];
-  affected: Array<{ nodeId: string; status: string; masteredAt: string | null }>;
-  deleted?: number;
+  dryRun: boolean; treeId: string; nodeIds: string[];
+  users: ResetUserResult[];
+  skipped: Array<{ input: string; code: string }>;
+  totals: { users: number; affectedDocs: number; deleted: number };
 }
 
 export const adminLookupUser = (email: string) =>
@@ -662,32 +795,42 @@ export const adminResetProgress = (input: ResetInput) =>
   httpsCallable<ResetInput, ResetResult>(fns, 'focusProgressReset')(input).then(r => r.data);
 ```
 
-### 9.7 `AdminProgressResetView.vue`（管理員重置介面）
+### 9.7 `AdminProgressResetView.vue`（管理員批次重置介面）
 
 ```vue
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { adminLookupUser, adminResetProgress, type ResetResult } from '../admin-api';
+import { adminLookupUser, adminResetProgress, type ResetResult, type ResetUserResult } from '../admin-api';
 
 interface TreeRow { id: string; name: string; subject: string; examYear: number; status: string }
 interface NodeRow { id: string; name: string; weight: number }
+interface Target { uid: string; email: string; displayName: string }
 
 const trees = ref<TreeRow[]>([]);
 const treeId = ref('');
-const email = ref('');
-const user = ref<{ uid: string; email: string; displayName: string } | null>(null);
+const emailInput = ref('');
+const targets = ref<Target[]>([]);
 const nodes = ref<NodeRow[]>([]);
 const selected = ref<string[]>([]);
 const cascade = ref(true);
 const preview = ref<ResetResult | null>(null);
+const result = ref<ResetResult | null>(null);
 const confirmText = ref('');
 const busy = ref(false);
 const error = ref('');
 
-const currentTree = computed(() => trees.value.find(t => t.id === treeId.value));
 const allSelected = computed(() => nodes.value.length > 0 && selected.value.length === nodes.value.length);
+const currentTree = computed(() => trees.value.find(t => t.id === treeId.value));
+const isReadOnly = computed(() => currentTree.value?.status === 'archived');
+const expanded = ref<Set<string>>(new Set());
+const toggleExpand = (uid: string) => {
+  const next = new Set(expanded.value);
+  if (next.has(uid)) next.delete(uid); else next.add(uid);
+  expanded.value = next;
+};
+const nodeName = (id: string) => nodes.value.find(n => n.id === id)?.name ?? id;
 
 onMounted(async () => {
   const snap = await getDocs(collection(db, 'focus_trees'));
@@ -699,8 +842,7 @@ onMounted(async () => {
 
 async function selectTree(id: string) {
   treeId.value = id;
-  preview.value = null;
-  confirmText.value = '';
+  preview.value = null; result.value = null; confirmText.value = '';
   const snap = await getDocs(collection(db, 'focus_trees', id, 'nodes'));
   nodes.value = snap.docs.map(d => {
     const v = d.data() as Record<string, unknown>;
@@ -709,15 +851,23 @@ async function selectTree(id: string) {
   selected.value = nodes.value.map(n => n.id);
 }
 
-async function findUser() {
+async function addTarget() {
   error.value = '';
   try {
-    user.value = await adminLookupUser(email.value.trim());
+    const u = await adminLookupUser(emailInput.value.trim());
+    if (!targets.value.some(t => t.uid === u.uid)) {
+      targets.value.push({ uid: u.uid, email: u.email, displayName: u.displayName });
+    }
+    emailInput.value = '';
     preview.value = null;
   } catch (e) {
-    user.value = null;
     error.value = (e as Error).message;
   }
+}
+
+function removeTarget(uid: string) {
+  targets.value = targets.value.filter(t => t.uid !== uid);
+  preview.value = null;
 }
 
 function toggleAll() {
@@ -725,13 +875,17 @@ function toggleAll() {
 }
 
 async function runPreview() {
-  if (!user.value) return;
+  if (!targets.value.length) return;
   busy.value = true; error.value = '';
   try {
     preview.value = await adminResetProgress({
-      uid: user.value.uid, treeId: treeId.value,
-      nodeIds: selected.value, cascade: cascade.value, dryRun: true,
+      treeId: treeId.value,
+      uids: targets.value.map(t => t.uid),
+      nodeIds: selected.value,
+      cascade: cascade.value,
+      dryRun: true,
     });
+    expanded.value = new Set();
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -740,29 +894,36 @@ async function runPreview() {
 }
 
 async function runReset() {
-  if (!user.value || !preview.value) return;
-  if (confirmText.value !== treeId.value) { error.value = '請輸入完整 treeId 以確認'; return; }
+  if (!preview.value) return;
+  if (confirmText.value !== treeId.value) {
+    error.value = '請輸入完整 treeId 以確認';
+    return;
+  }
   busy.value = true; error.value = '';
   try {
-    await adminResetProgress({
-      uid: user.value.uid, treeId: treeId.value,
-      nodeIds: selected.value, cascade: cascade.value, dryRun: false,
+    result.value = await adminResetProgress({
+      treeId: treeId.value,
+      uids: targets.value.map(t => t.uid),
+      nodeIds: selected.value,
+      cascade: cascade.value,
+      dryRun: false,
     });
-    preview.value = null;
-    confirmText.value = '';
+    preview.value = null; confirmText.value = '';
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
     busy.value = false;
   }
 }
+
+const affectedOf = (u: ResetUserResult) => u.affected.length;
 </script>
 
 <template>
   <section class="admin-reset">
     <h1>重置學習進度</h1>
 
-    <label>樹（按 subject / 年份）</label>
+    <label>樹</label>
     <select v-model="treeId" @change="selectTree(treeId)">
       <option value="" disabled>選擇樹</option>
       <option v-for="t in trees" :key="t.id" :value="t.id">
@@ -770,14 +931,20 @@ async function runReset() {
       </option>
     </select>
 
-    <label>學習者 email</label>
+    <label>加入學習者（email）</label>
     <div class="row">
-      <input v-model="email" type="email" placeholder="student@example.com" />
-      <button :disabled="!email" @click="findUser">查找</button>
+      <input v-model="emailInput" type="email" placeholder="student@example.com" @keyup.enter="addTarget" />
+      <button :disabled="!emailInput" @click="addTarget">加入</button>
     </div>
-    <p v-if="user">{{ user.displayName }}（{{ user.uid }}）</p>
 
-    <template v-if="currentTree && user">
+    <ul class="targets">
+      <li v-for="t in targets" :key="t.uid">
+        {{ t.displayName }}（{{ t.email || t.uid }}）
+        <button @click="removeTarget(t.uid)">移除</button>
+      </li>
+    </ul>
+
+    <template v-if="treeId && targets.length">
       <label>節點範圍（預設全樹）</label>
       <button class="link" @click="toggleAll">{{ allSelected ? '取消全選' : '全選' }}</button>
       <ul class="nodes">
@@ -787,20 +954,43 @@ async function runReset() {
       </ul>
 
       <label><input v-model="cascade" type="checkbox" /> 級聯重置下游節點</label>
-
-      <button :disabled="busy || !selected.length" @click="runPreview">預覽影響</button>
+      <p v-if="isReadOnly" class="warn">此年份已封存，進度唯讀，不可重置。</p>
+      <button :disabled="busy || isReadOnly || !selected.length" @click="runPreview">
+        預覽影響（{{ targets.length }} 人）
+      </button>
 
       <div v-if="preview">
-        <p>影響 {{ preview.affected.length }} 份進度：</p>
-        <ul>
-          <li v-for="a in preview.affected" :key="a.nodeId">{{ a.nodeId }} — {{ a.status }} — {{ a.masteredAt ?? '—' }}</li>
-        </ul>
+        <table>
+          <thead><tr><th>學習者</th><th>受影響</th><th></th></tr></thead>
+          <tbody>
+            <template v-for="u in preview.users" :key="u.uid">
+              <tr class="clickable" @click="toggleExpand(u.uid)">
+                <td>{{ u.email || u.uid }}</td>
+                <td>{{ affectedOf(u) }}</td>
+                <td>{{ expanded.has(u.uid) ? '收起' : '展開' }}</td>
+              </tr>
+              <tr v-if="expanded.has(u.uid)">
+                <td colspan="3">
+                  <ul class="detail-list">
+                    <li v-for="a in u.affected" :key="a.nodeId">
+                      {{ nodeName(a.nodeId) }} — {{ a.status }} — {{ a.masteredAt ?? '—' }}
+                    </li>
+                  </ul>
+                  <p v-if="!u.affected.length">此範圍沒有進度。</p>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot><tr><td>合計</td><td>{{ preview.totals.affectedDocs }}</td><td></td></tr></tfoot>
+        </table>
+
         <label>輸入 <code>{{ treeId }}</code> 確認</label>
         <input v-model="confirmText" />
-        <button class="danger" :disabled="busy || confirmText !== treeId" @click="runReset">確認重置</button>
+        <button class="danger" :disabled="busy || isReadOnly || confirmText !== treeId" @click="runReset">確認重置</button>
       </div>
     </template>
 
+    <p v-if="result">已重置 {{ result.totals.deleted }} 份進度，影響 {{ result.totals.users }} 人。</p>
     <p v-if="error" class="error">{{ error }}</p>
   </section>
 </template>
@@ -811,11 +1001,12 @@ async function runReset() {
 ```text
 /admin/focus-progress
   ├─ 讀 focus_trees（admin 可讀全部 state）
-  ├─ 選 treeId → 讀 nodes 子集合 → 勾選節點
-  ├─ email → focusAdminLookupUser → uid
-  ├─ focusProgressReset(dryRun: true) → 影響清單（含級聯）
+  ├─ 選 treeId → archived 樹標示「唯讀」並停用重置
+  ├─ 讀 nodes 子集合 → 勾選節點
+  ├─ 逐筆 email → focusAdminLookupUser → 加入 targets（可多人）
+  ├─ focusProgressReset(uids, dryRun: true) → 每人影響清單 + totals
   ├─ 人工輸入 treeId 確認
-  └─ focusProgressReset(dryRun: false) → 刪除 + audit_logs
+  └─ focusProgressReset(uids, dryRun: false) → 分塊刪除 + audit_logs
 ```
 
 ## 10. 索引與部署
@@ -855,17 +1046,38 @@ firebase deploy --only functions:focusProgressGet,functions:focusProgressSet,fun
 | mr_note | 全部 `""` | **發佈硬閘門**：4 條皆空時 `focusTreePublish` 回 `E_MR_NOTE_MISSING`；補齊 MR 後才可發佈 |
 | 跨樹查重 | 僅比對同 subject + 同 exam_year 的其他樹 | 跨年份重複不告警；同年度重複才需人工裁決 |
 | 多樹並存 | 同 subject 允許 `chem-2026` / `chem-2027` / … | 進度以 `treeId__nodeId` 隔離，互不影響 |
+| 封存 | `archived` 樹的進度唯讀 | 進度寫入、重置、再發佈一律 `E_TREE_ARCHIVED`；歷史完成度仍可讀 |
 
 ## 12. 決策記錄與待確認
 
 已定案：
 
-1. 同 subject **允許多棵樹**，以 `exam_year` 區分；`treeId = {subject}-{examYear}`。
+1. 同 subject **允許多棵樹**，以 `exam_year` 區分；首棵樹定為 `chem-2027`。
 2. 發佈時 `mr_note` **強制非空**，不提供關閉開關。
-3. 提供管理員 `focusProgressReset` 介面：`dry-run` 預覽 → 級聯重置 → `audit_logs`。
+3. 管理員 `focusProgressReset` 支援**批次多 uid**（≤200 人），流程：dry-run 預覽 → 級聯重置 → audit_logs。
+4. `archived` 樹的進度**唯讀**：不可寫入、不可重置、不可再發佈；完成度仍可查詢。
+5. 批次重置預覽**可展開每位使用者的節點明細**（節點名稱、狀態、masteredAt）。
 
 仍待確認：
 
-1. 首棵樹的 `exam_year` 與 `treeId`（暫以 `chem-2027` 為例）。
-2. `archived` 樹的進度是否轉為唯讀（建議是，僅保留歷史查詢）。
-3. 是否需要一次重置多個 uid（目前介面為單一使用者）。
+1. 是否需要 `adminUnarchive` 例外流程（目前 `archived` 為終態）。
+
+## 13. 落地檔案
+
+| 路徑 | 內容 |
+| --- | --- |
+| `functions/src/focus-tree/schema.ts` | 13 欄位型別、狀態係數、id 規則 |
+| `functions/src/focus-tree/admin.ts` | Admin SDK 初始化、`assertAdmin` |
+| `functions/src/focus-tree/progress.ts` | `focusProgressGet` / `focusProgressSet` |
+| `functions/src/focus-tree/reset.ts` | `focusProgressReset` / `focusAdminLookupUser` |
+| `functions/src/focus-tree/validate.ts` | 13 欄位＋圖校驗、跨樹查重、diff、checksum |
+| `functions/src/focus-tree/tree.ts` | `focusTreeValidate` / `focusTreeApprove` / `focusTreePublish` |
+| `functions/src/focus-tree/index.ts` | callable 匯出 |
+| `functions/scripts/seed-chem-2027.js` | 寫入 chem-2027 draft + 4 節點 |
+| `focus-tree-web/` | Vue 3 + Vite + Pinia 前端 |
+| `firestore.rules` | 已加入 focus_trees / nodes / user_focus_progress / audit_logs 規則 |
+| `focus-tree-web/src/focus-tree/views/AdminProgressResetView.vue` | 批次重置介面（可展開明細） |
+| `focus-tree-web/src/focus-tree/views/FocusTreeView.vue` | 學習者樹狀檢視 |
+| `focus-tree-web/src/focus-tree/views/AdminPublishView.vue` | 驗證 → 核准 → 發佈介面 |
+
+編譯：`cd functions && npm run build:focus-tree`；前端：`cd focus-tree-web && npm run dev`。
