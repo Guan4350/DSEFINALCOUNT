@@ -12,7 +12,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
-    "lint": "tsc -b --pretty false"
+    "lint": "tsc -b --pretty false",
+    "preflight:focus-tree": "node scripts/preflight-focus-tree.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.19",

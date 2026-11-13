@@ -80,6 +80,25 @@ async function selectTree(id: string) {
   nodesJson.value = JSON.stringify(nodes, null, 2);
 }
 
+async function loadFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  nodesJson.value = await file.text();
+  onJsonEdit();
+  input.value = '';
+}
+
+function downloadJson() {
+  const blob = new Blob([nodesJson.value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${treeId.value}-nodes.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function onJsonEdit() {
   if (report.value) {
     report.value = null;
@@ -191,7 +210,14 @@ async function runPublish() {
       </label>
 
       <div class="actions">
-        <button class="btn" type="button" :disabled="busy || isArchived" @click="runValidate">
+        <label class="btn file-btn">
+          載入 JSON 檔
+          <input type="file" accept="application/json" hidden @change="loadFile" />
+        </label>
+        <button class="btn" type="button" :disabled="!nodesJson" @click="downloadJson">
+          下載目前 JSON
+        </button>
+        <button class="btn primary" type="button" :disabled="busy || isArchived" @click="runValidate">
           驗證（dry-run）
         </button>
         <button

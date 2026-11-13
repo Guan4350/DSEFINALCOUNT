@@ -20,10 +20,10 @@ export function setupAppCheck(app: FirebaseApp): AppCheck | null {
     return null;
   }
 
-  if (import.meta.env.DEV) {
-    const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+  const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+  if (debugToken) {
     (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN =
-      debugToken || true;
+      debugToken;
   }
 
   return initializeAppCheck(app, {

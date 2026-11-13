@@ -30,7 +30,7 @@ npm run dev                  # http://localhost:5174
 
 1. Console → App Check → 註冊 Web App（reCAPTCHA Enterprise），取得 site key。
 2. 填入 `.env.local` 的 `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`。
-3. 本機開發可設 `VITE_APPCHECK_DEBUG_TOKEN`（或留空，dev 模式會自動啟用 debug token 並印在 console）。
+3. 本機若 Enterprise key 不允許 `localhost`，設 `VITE_APPCHECK_DEBUG_TOKEN`（token 或 `true`），並把產生的 debug token 加入 App Check Console 的 allowlist。
 
 未填 site key 時，callable 會被 App Check 拒絕。
 
