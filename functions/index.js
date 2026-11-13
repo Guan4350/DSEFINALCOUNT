@@ -372,3 +372,19 @@ exports.syncIcal = onSchedule(
   },
 );
 
+// 國策樹 callables。需先執行 `npm run build:focus-tree` 產生 lib/focus-tree。
+try {
+  const focusTree = require('./lib/focus-tree');
+  exports.focusProgressGet = focusTree.focusProgressGet;
+  exports.focusProgressSet = focusTree.focusProgressSet;
+  exports.focusProgressReset = focusTree.focusProgressReset;
+  exports.focusAdminLookupUser = focusTree.focusAdminLookupUser;
+  exports.focusTreeValidate = focusTree.focusTreeValidate;
+  exports.focusTreeApprove = focusTree.focusTreeApprove;
+  exports.focusTreePublish = focusTree.focusTreePublish;
+} catch (error) {
+  logger.warn('[focus-tree] callables not built; run npm run build:focus-tree', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+

@@ -523,6 +523,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 國策樹：published / archived 公開讀；所有寫入只經 Cloud Functions。
+    match /focus_trees/{treeId} {
+      allow read: if resource.data.status in ['published', 'archived'] || isAdmin();
+
+      match /nodes/{nodeId} {
+        allow read: if isAdmin()
+          || get(/databases/$(database)/documents/focus_trees/$(treeId)).data.status in ['published', 'archived'];
+        allow write: if false;
+      }
+      allow write: if false;
+    }
+
+    match /user_focus_progress/{uid}/nodes/{progressId} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    match /focus_tree_imports/{importId} {
+      allow read, write: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

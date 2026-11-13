@@ -6,9 +6,18 @@
   "engines": {
     "node": "20"
   },
+  "scripts": {
+    "build:focus-tree": "tsc -p tsconfig.focus-tree.json",
+    "watch:focus-tree": "tsc -p tsconfig.focus-tree.json --watch",
+    "seed:chem-2027": "node scripts/seed-chem-2027.js"
+  },
   "dependencies": {
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^6.1.0",
     "ical.js": "^2.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "typescript": "^5.6.3"
   }
 }

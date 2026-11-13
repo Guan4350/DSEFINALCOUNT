@@ -1,0 +1,62 @@
+[
+  {
+    "id": "chem_t01_planet_earth",
+    "name": "物質分類與分離技術",
+    "description": "以空氣、海水、岩石三大場景建立 element/compound/mixture、physical/chemical change 的分類框架，並以蒸發、蒸餾、結晶、過濾解決分離問題；同時建立 flame test、chloride test、test for water、test for CO2 的試劑—現象—結論三段式。",
+    "subject": "Chemistry",
+    "syllabus_ref": "Chem C&A Guide (2018) Topic I, p. I-1–I-3",
+    "mr_note": "",
+    "prerequisites": [],
+    "soft_prerequisites": ["初中科學：混合物與分離的基礎概念"],
+    "target_grade": "4",
+    "estimated_hours": 3,
+    "validation_rule": "無提示下完成三項：(1) 為 salt+sand、sand+water+oil、海水取鹽三組混合物各選一種分離法並解釋理由；(2) 用 word equation 寫出 CaCO3 的 thermal decomposition 及 acid on CaCO3；(3) 說出四個 chemical test 的試劑、觀察、結論。",
+    "reward": "解鎖 Topic II 的微觀世界入口",
+    "weight": 2
+  },
+  {
+    "id": "chem_t02_micro_world",
+    "name": "原子結構、週期表與化學鍵",
+    "description": "由 Z≤20 的電子排布推導 group/period 與活性，並用電子圖處理 ionic/covalent bonding；最終以 giant ionic、simple molecular、giant covalent、metallic 四類結構解釋熔點與導電性差異。",
+    "subject": "Chemistry",
+    "syllabus_ref": "Chem C&A Guide (2018) Topic II, p. I-4–I-9",
+    "mr_note": "",
+    "prerequisites": ["chem_t01_planet_earth"],
+    "soft_prerequisites": [],
+    "target_grade": "4",
+    "estimated_hours": 8,
+    "validation_rule": "無提示下完成三項：(1) 給定 Z≤20 元素，寫電子排布並推 group/period；(2) 用電子圖描述 NaCl 與 CO2 的鍵合；(3) 由結構解釋四類物質的熔點與導電性差異。",
+    "reward": "解鎖全科結構解釋題型",
+    "weight": 5
+  },
+  {
+    "id": "chem_t03_metals_mole",
+    "name": "金屬反應性與摩爾計算",
+    "description": "以實驗證據建立 reactivity series，處理 extraction、corrosion 與防鏽；同步建立 mole、Avogadro constant、concentration 的換算體系，為全科定量題提供唯一運算骨幹。",
+    "subject": "Chemistry",
+    "syllabus_ref": "Chem C&A Guide (2018) Topic III, p. I-10–I-15",
+    "mr_note": "",
+    "prerequisites": ["chem_t02_micro_world"],
+    "soft_prerequisites": [],
+    "target_grade": "4",
+    "estimated_hours": 10,
+    "validation_rule": "無提示下完成三項：(1) mass↔mole↔particle number↔concentration 互換 5 題全對；(2) 以離子方程式寫 3 個置換反應並用 reactivity series 排序解釋；(3) 提出並解釋 2 種防鏽方法。",
+    "reward": "解鎖 Topic IV 滴定計算",
+    "weight": 5
+  },
+  {
+    "id": "chem_t04_acid_base",
+    "name": "酸鹼、鹽製備與容量分析",
+    "description": "建立 strong/weak acid 的導電性與 pH 解釋、salt preparation 的可行性判斷（solubility rules + 反應類型選擇），並以 titration 數據完成濃度與質量計算，含題目提供資料時的 back titration。",
+    "subject": "Chemistry",
+    "syllabus_ref": "Chem C&A Guide (2018) Topic IV, p. I-15–I-22；Part II note IV(f), p. II-3",
+    "mr_note": "",
+    "prerequisites": ["chem_t03_metals_mole"],
+    "soft_prerequisites": ["chem_t02_micro_world"],
+    "target_grade": "4",
+    "estimated_hours": 8,
+    "validation_rule": "無提示下完成三項：(1) 由 titration 數據算未知濃度或質量，含 1 題資料齊備的 back titration；(2) 用離子化程度解釋同濃度強弱酸的導電性與 pH 差異；(3) 為 3 組指定鹽各選一條製備路徑並排除不可行組合。",
+    "reward": "解鎖 Topic VII 氧化還原與電解",
+    "weight": 5
+  }
+]
