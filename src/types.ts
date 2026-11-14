@@ -30,7 +30,7 @@ export interface CalendarSyncConfig {
   lastError?: string;
   icalUrls: string[];
   icalProxyUrl?: string;
-  /** Server-side iCloud/iCal auto-sync (Firebase Functions + Scheduler). */
+  /** Server-side iCloud/iCal auto-sync (GitHub Actions hourly cron). */
   icalAutoUrl?: string;
   icalAutoEnabled?: boolean;
   icalLastSyncAt?: string;

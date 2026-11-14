@@ -200,14 +200,15 @@ Custom electives are ordinary `subjects` with `category: 'ELECTIVE'`; the settin
 
 ### Server-side iCal auto-sync
 
-`functions/index.js` is a Firebase Functions v2 `onSchedule` job (Node 20, region `asia-east1`, every 60 minutes). It reads `calendarSyncConfig` documents with `icalAutoEnabled == true`, fetches each `icalAutoUrl` server-side (no CORS), parses VEVENTs with `ical.js`, and reconciles only `source: 'ics'` documents in `userCalendarEvents`.
+The Spark-compatible path is `.github/workflows/ical-sync.yml` + `scripts/ical-sync/sync.js` (Node 20, hourly GitHub Actions cron). It reads `calendarSyncConfig` documents with `icalAutoEnabled == true`, fetches each `icalAutoUrl` server-side (no CORS), parses VEVENTs with `ical.js`, and reconciles only `source: 'ics'` documents in `userCalendarEvents`.
 
 - New/changed events are written; missing ICS events are deleted.
 - Google events and local events are never touched.
 - The same deterministic `ical-${FNV(externalId)}` ID scheme is shared with the browser, so existing imports update rather than duplicate.
 - Per-user 403/timeout/parse failures update `icalLastStatus`/`icalLastError` and log; the run continues.
 - Requests are sequential with a 350 ms gap, a 15 s timeout and a 25-user cap per run to limit iCloud blocking.
-- The function never writes to iCloud; it is one-way.
+- The runner never writes to iCloud; it is one-way.
+- The optional `functions/` implementation is the same logic on Firebase Functions + Cloud Scheduler for Blaze projects; only one scheduler should be enabled.
 
 ## 8. System DSE timetable
 

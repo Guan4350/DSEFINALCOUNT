@@ -119,7 +119,7 @@ export function CalendarSyncPanel({
       });
       setConfig(next);
       setIcalInput(url);
-      showToast('已啟用 iCloud/iCal 自動同步；Functions 會每 60 分鐘更新，毋須再手動匯入。', 'success');
+      showToast('已啟用 iCloud/iCal 自動同步；GitHub Actions 會每 60 分鐘更新，毋須再手動匯入。', 'success');
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : String(nextError);
       setError(message);
@@ -196,7 +196,7 @@ export function CalendarSyncPanel({
           <div className="eyebrow">Calendar sync / manual</div>
           <h2>外部日曆</h2>
           <p className="help">
-            Google Calendar 雙向同步由你手動觸發；Apple iCal 由 Functions 每 60 分鐘單向自動同步。
+            Google Calendar 雙向同步由你手動觸發；Apple iCal 由 GitHub Actions 每 60 分鐘單向自動同步。
           </p>
         </div>
         <span className={`chip ${connected ? 'chip-gold' : ''}`}>
@@ -236,7 +236,7 @@ export function CalendarSyncPanel({
             <span className="tiny muted">每 60 分鐘 · 只讀</span>
           </div>
           <div className="help">
-            貼上 iCloud / iCal <strong>公開 .ics 網址</strong>。儲存後由 Firebase Functions + Cloud Scheduler 每 60 分鐘自動同步，唔需要再手動匯入。
+            貼上 iCloud / iCal <strong>公開 .ics 網址</strong>。儲存後由 GitHub Actions 每 60 分鐘自動同步，唔需要再手動匯入。
             啟用後會以該 feed 為準：feed 已刪除的事件會從網站移除。
             亦可在下面貼完整原始碼，使用「只匯入一次」作即時測試。
           </div>

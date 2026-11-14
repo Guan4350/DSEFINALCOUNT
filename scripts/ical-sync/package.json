@@ -1,0 +1,13 @@
+{
+  "name": "dse-ical-sync",
+  "private": true,
+  "version": "1.0.0",
+  "main": "sync.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "ical.js": "^2.2.1"
+  }
+}

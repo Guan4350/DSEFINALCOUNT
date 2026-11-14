@@ -52,9 +52,9 @@ Source of truth: [../firestore.rules](../firestore.rules).
 - `userCalendarEvents` is queried with `where('uid', '==', auth.uid)` and rules allow only the owner to read/write. The document ID includes the uid to prevent collisions between users importing the same Google event.
 - `calendarSyncConfig` holds only `googleConnected`, `lastSyncAt`, `lastError`, `icalUrls` and an optional `icalProxyUrl`; the token is never persisted.
 - `userPreferences` holds only the theme mode, light/dark appearance, texture flag and five validated hex category colours. It is readable/writable by the owner only.
-- iCal source text can be pasted directly and is never stored; URL imports are user-supplied. Browser imports use direct fetch; the scheduled Functions job fetches server-side with no CORS dependency.
-- The scheduled function accepts only public `https` URLs, rejects localhost/private IPv4 ranges, follows at most four redirects (revalidating each), times out after 15 s, and caps responses at 5 MB. It processes at most 25 users sequentially with a 350 ms gap. HTTP 403/timeouts/parse errors are logged and stored as `icalLastError`; they never abort the run.
-- Functions + Cloud Scheduler require Blaze; the browser app and Firestore rules remain unchanged for Spark-only users.
+- iCal source text can be pasted directly and is never stored; URL imports are user-supplied. Browser imports use direct fetch; the GitHub Actions runner fetches server-side with no CORS dependency.
+- The scheduled runner accepts only public `https` URLs, rejects localhost/private IPv4 ranges, follows at most four redirects (revalidating each), times out after 15 s, and caps responses at 5 MB. It processes at most 25 users sequentially with a 350 ms gap. HTTP 403/timeouts/parse errors are logged and stored as `icalLastError`; they never abort the run.
+- The GitHub Actions runner authenticates with the `FIREBASE_SERVICE_ACCOUNT` repository secret (Cloud Datastore User). The service-account JSON is never committed. The optional Functions path requires Blaze; the GitHub Actions path works on Spark.
 
 ### Check-in proof
 
@@ -123,7 +123,7 @@ Free daily limits (confirm in Firebase Console; they can change):
 - 20k document writes
 - 1 GiB stored
 
-No Blaze-only backend is needed for the dashboard; the single scheduled iCal function requires Blaze. No Firebase Storage, cron (other than that 60-minute job) or realtime listeners are configured.
+The dashboard and the GitHub Actions iCal sync run on Spark; the optional Firebase Functions scheduler requires Blaze. No Firebase Storage or realtime listeners are configured.
 
 Rough behaviour:
 

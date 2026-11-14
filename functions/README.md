@@ -1,4 +1,6 @@
-# DSE Final Count — iCal auto-sync function
+# DSE Final Count — optional Blaze iCal function
+
+> The Spark-compatible scheduler is [../scripts/ical-sync](../scripts/ical-sync) + [../.github/workflows/ical-sync.yml](../.github/workflows/ical-sync.yml). Use this Functions folder only if you choose Blaze; do not run both schedulers.
 
 Firebase Functions v2 scheduled job that fetches each user's public iCloud/iCal URL
 server-side (no browser CORS), parses VEVENTs, and reconciles `userCalendarEvents`.

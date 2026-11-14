@@ -11,8 +11,9 @@ Mode A is the fallback: leave all six Firebase variables empty.
 - Node.js 20+
 - pnpm (`corepack enable` once) or npm
 - A GitHub account
-- A Firebase project; the static app can stay on **Spark**
-- **Firebase Functions + Cloud Scheduler require Blaze** (pay-as-you-go with free quotas). Storage is still **not** used.
+- A Firebase project on **Spark** for the app + GitHub Actions iCal sync
+- A service account JSON for the GitHub Action; Blaze is **only** needed if you choose the optional Firebase Functions path
+- Firebase Storage is still **not** used.
 
 ---
 
@@ -100,39 +101,46 @@ Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Data
 
 > The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. `calendarSyncConfig` now also validates `icalAutoUrl`, `icalAutoEnabled` and auto-sync status fields. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
 
-## 5. Deploy iCal auto-sync Functions + Scheduler
+## 5. Enable GitHub Actions iCal auto-sync (Spark path)
 
-The functions live in [../functions](../functions). They use Node.js 20, Firebase Functions v2, `firebase-admin` and `ical.js`.
+The Spark-compatible scheduler lives in [../scripts/ical-sync](../scripts/ical-sync) and runs from [../.github/workflows/ical-sync.yml](../.github/workflows/ical-sync.yml). It uses Node.js 20 + `firebase-admin` + `ical.js`, so no Blaze Functions or Cloud Scheduler are required.
+
+1. Google Cloud Console → **IAM & Admin → Service Accounts**.
+2. Create `ical-sync-runner`, grant **Cloud Datastore User** (`roles/datastore.user`) on the Firebase project.
+3. Create a JSON key for that service account.
+4. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
+   - Name: `FIREBASE_SERVICE_ACCOUNT`
+   - Value: the complete JSON key.
+5. Push the workflow, then run it once:
+   - GitHub UI → **Actions → iCal auto-sync → Run workflow**, or:
+   ```bash
+   gh workflow run ical-sync.yml
+   gh run list --workflow=ical-sync.yml
+   gh run watch
+   ```
+
+The workflow schedule is `0 * * * *` (hourly, UTC). GitHub Actions cron may be delayed; it is not a real-time scheduler.
+
+Notes:
+
+- Each run handles at most 25 enabled users, sequentially with a 350 ms gap and a 15 s timeout per fetch, to avoid iCloud rate limiting.
+- 403/timeout/invalid-ICS failures are logged per uid and written into `calendarSyncConfig`; the run continues with the next user.
+- The runner only writes `userCalendarEvents` and `calendarSyncConfig`; it never writes back to Apple.
+- Only public `https` URLs are accepted; localhost/private ranges are rejected to avoid SSRF.
+- Public repositories use free Actions minutes. Private repositories consume minutes; scheduled workflows can be disabled after 60 days without repository activity.
+- `FIREBASE_SERVICE_ACCOUNT` is encrypted by GitHub Secrets. Never commit the JSON key.
+
+### Optional Blaze path (Firebase Functions)
+
+The earlier [../functions](../functions) implementation remains as an optional alternative. Do **not** run both the GitHub Action and the Firebase scheduler for the same users. It requires Blaze; deploy only if you choose that path. Add `"functions": { "source": "functions" }` to `firebase.json` first (it is deliberately not wired for the Spark path).
 
 ```bash
 cd functions
 npm install
 cd ..
-firebase use --add          # choose the same Firebase project, alias "default"
+firebase use --add
 firebase deploy --only functions
 ```
-
-`onSchedule` creates/updates the Cloud Scheduler job automatically on deploy. Region is **asia-east1**, schedule is **every 60 minutes**, timezone **Asia/Hong_Kong**.
-
-Verify / run / inspect logs:
-
-```bash
-gcloud scheduler jobs list --location=asia-east1
-gcloud scheduler jobs describe firebase-schedule-syncIcal-asia-east1 --location=asia-east1
-gcloud scheduler jobs run firebase-schedule-syncIcal-asia-east1 --location=asia-east1
-gcloud scheduler jobs update http firebase-schedule-syncIcal-asia-east1 \
-  --location=asia-east1 --schedule="0 * * * *" --time-zone="Asia/Hong_Kong"
-firebase functions:log --only syncIcal
-```
-
-Notes:
-
-- `firebase deploy --only functions` **creates/updates the Cloud Scheduler job automatically**; you do not need a separate `gcloud scheduler jobs create`.
-- Function and Scheduler require **Blaze**; Firestore rules still control client access.
-- Each run handles at most 25 enabled users, sequentially with a 350 ms gap and a 15 s timeout per fetch, to avoid iCloud rate limiting.
-- 403/timeout/invalid-ICS failures are logged per uid and written into `calendarSyncConfig`; the run continues with the next user.
-- The function only writes `userCalendarEvents` and `calendarSyncConfig`; it never writes back to Apple.
-- Only public `https` URLs are accepted; localhost/private ranges are rejected to avoid SSRF.
 
 Manual smoke checks after publishing:
 
@@ -153,8 +161,8 @@ Manual smoke checks after publishing:
 15. Email sign-in: create an account in Settings, verify it appears under Authentication → Users and that `users/{uid}` is created.
 16. Google Calendar: press **連接 Google Calendar**, accept the Calendar scope, then **立即同步**. Confirm Google events appear under `userCalendarEvents` and on FullCalendar.
 17. Create/edit/delete a website event with **同步到 Google Calendar** checked. Confirm the Google Calendar changes and the Firestore mirror. Delete an imported Google event and confirm it is removed from Google.
-18. Apple iCal auto-sync: paste a public iCloud `.ics` URL (or `webcal://`) and press **儲存並啟用自動同步**. Confirm `calendarSyncConfig/{uid}` has `icalAutoUrl`, `icalAutoEnabled: true`, `icalLastStatus: "pending"`. Run the scheduler manually, then confirm `icalLastStatus: "ok"` and events in `userCalendarEvents`.
-19. Modify the source calendar (add/edit/delete an event), run the scheduler again, and confirm the same add/update/delete in Firestore. Nothing is written back to Apple.
+18. Apple iCal auto-sync: paste a public iCloud `.ics` URL (or `webcal://`) and press **儲存並啟用自動同步**. Confirm `calendarSyncConfig/{uid}` has `icalAutoUrl`, `icalAutoEnabled: true`, `icalLastStatus: "pending"`. Run **Actions → iCal auto-sync → Run workflow**, then confirm `icalLastStatus: "ok"` and events in `userCalendarEvents`.
+19. Modify the source calendar (add/edit/delete an event), rerun the GitHub Action, and confirm the same add/update/delete in Firestore. Nothing is written back to Apple.
 20. Test a pasted `BEGIN:VCALENDAR…END:VCALENDAR` source with **只匯入一次**; confirm it still works without enabling auto-sync.
 21. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
 22. Calendar colours: change all five category colours in Settings, confirm full-width calendar bars, Dashboard horizon tags and the countdown card use them, then switch skin and confirm the colours do not reset.

@@ -1,0 +1,35 @@
+name: iCal auto-sync
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. This fires hourly at minute 0.
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ical-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install sync dependencies
+        run: npm ci --prefix scripts/ical-sync
+
+      - name: Reconcile iCloud feeds
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/ical-sync/sync.js
