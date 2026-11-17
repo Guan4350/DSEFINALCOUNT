@@ -3,6 +3,7 @@ import type { View } from '../contexts/AppContext';
 import { useApp } from '../contexts/AppContext';
 import { SPARK_READ_LIMIT, SPARK_WRITE_LIMIT, usagePercent } from '../lib/usage';
 import { Dashboard } from './Dashboard';
+import { FocusView } from './FocusView';
 import { CalendarView } from './CalendarView';
 import { TasksView } from './TasksView';
 import { TimerView } from './TimerView';
@@ -18,6 +19,7 @@ const NAV: { section: string; items: { view: View; label: string; icon: IconName
     section: 'Study',
     items: [
       { view: 'dashboard', label: '總覽', icon: 'grid' },
+      { view: 'focus', label: '國策', icon: 'book' },
       { view: 'calendar', label: '日曆', icon: 'calendar' },
       { view: 'tasks', label: '任務', icon: 'check-square' },
       { view: 'timer', label: '計時', icon: 'clock' },
@@ -39,6 +41,7 @@ const NAV: { section: string; items: { view: View; label: string; icon: IconName
 
 const TITLES: Record<View, string> = {
   dashboard: '總覽',
+  focus: '國策',
   calendar: '日曆',
   tasks: '任務',
   timer: '計時',
@@ -235,6 +238,7 @@ export function Shell() {
           ) : null}
 
           {view === 'dashboard' ? <Dashboard /> : null}
+          {view === 'focus' ? <FocusView /> : null}
           {view === 'calendar' ? <CalendarView /> : null}
           {view === 'tasks' ? <TasksView /> : null}
           {view === 'timer' ? <TimerView /> : null}

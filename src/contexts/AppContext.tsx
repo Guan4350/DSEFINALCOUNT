@@ -89,7 +89,7 @@ import {
 import type { SystemExamEvent } from '../data/dse2025';
 import { timetableForYear, toCalendarEvents, type OfficialTimetable } from '../lib/systemExams';
 
-export type View = 'dashboard' | 'calendar' | 'tasks' | 'timer' | 'gallery' | 'analytics' | 'leaderboard' | 'admin' | 'settings';
+export type View = 'dashboard' | 'focus' | 'calendar' | 'tasks' | 'timer' | 'gallery' | 'analytics' | 'leaderboard' | 'admin' | 'settings';
 
 export interface Toast {
   id: string;
