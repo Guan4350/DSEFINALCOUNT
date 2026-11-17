@@ -1,0 +1,383 @@
+{
+  "schema_version": "chem-focus-tree-1.0",
+  "subject": "Chemistry",
+  "target_grade": "5**",
+  "total_weight": 100,
+  "source_documents": [
+    {
+      "id": "SRC-AF",
+      "title": "2026 HKDSE Chemistry Assessment Framework",
+      "publisher": "HKEAA",
+      "url": "https://www.hkeaa.edu.hk/DocLibrary/HKDSE/Subject_Information/chem/2026hkdse-e-chem.pdf",
+      "used_for": "模塊權重、試卷結構、評估目標"
+    },
+    {
+      "id": "SRC-GUIDE",
+      "title": "Chemistry Curriculum and Assessment Guide (S4-6) (2018) — Part I 課程更新、Part II 深廣度解釋註",
+      "publisher": "CDC / HKEAA",
+      "used_for": "課題範圍、學習成果、深度界線"
+    },
+    {
+      "id": "SRC-BRIEF24",
+      "title": "Briefing Session on 2024 HKDSE Chemistry Examination (Nov 2024)",
+      "publisher": "HKEAA",
+      "used_for": "等級百分位、Paper 2 選修統計"
+    }
+  ],
+  "design_conventions": {
+    "difficulty": "1-5 級設計參數，非官方數據。",
+    "estimated_hours": "設計參數，按課題學習成果數量估算，非官方數據。",
+    "completion_threshold": "設計門檻，以無提示達成率 ≥80% 為準；非官方評分標準。",
+    "marking_criteria": "在缺官方 Marking Scheme 下，由 Guide 的 'Students should be able to' 學習成果逐點提煉，屬考評對應期望，非評分方案原文。",
+    "prerequisites": "按課程順序的設計判斷，官方文件未明列前置關係。",
+    "weight_null": "null 表示官方未公佈該層級佔分，屬【資料缺口】，不得以估算值填補。"
+  },
+  "nodes": [
+    {
+      "id": "CHEM-ROOT",
+      "title": "DSE Chemistry 達 5** 總目標",
+      "prerequisites": ["CHEM-P1", "CHEM-P2", "CHEM-SBA"],
+      "marking_criteria": [
+        "AO1 recall and show understanding of chemical facts, patterns, principles, terminology and conventions",
+        "AO2 show an understanding of the use of apparatus and materials in performing experiments",
+        "AO3 handle materials, manipulate apparatus, carry out experiments safely and make accurate observations",
+        "AO4 demonstrate an understanding of the method used in chemical investigation",
+        "AO5 analyse and interpret data from various sources, and draw relevant conclusions",
+        "AO6 manipulate and translate chemical data and perform calculations",
+        "AO7 apply chemical knowledge to explain observations and solve problems which may involve unfamiliar situations",
+        "AO8 select and organise scientific information and communicate it in an appropriate and logical manner",
+        "AO9 understand and evaluate the social, economic, environmental and technological implications of the applications of chemistry",
+        "AO10 make decisions based on the examination of evidence and arguments"
+      ],
+      "completion_threshold": "Paper 1 (60%)、Paper 2 (20%)、SBA (20%) 三模塊全部達標，且全科加權總分達 5** 級界線。界線數值未公佈【資料缺口】；2024 年 5** 佔全體考生 2.6%（SRC-BRIEF24 p.5）。",
+      "weight": 100,
+      "difficulty": 5,
+      "estimated_hours": null,
+      "source": "SRC-AF p.1-2（Assessment Objectives 及 Mode of Assessment）；SRC-BRIEF24 p.5",
+      "notes": "根節點。整體達標門檻以等級界線表達，官方不公佈界線數值，故只保留百分位參考。"
+    },
+    {
+      "id": "CHEM-P1",
+      "title": "Paper 1 必修部分",
+      "prerequisites": [],
+      "marking_criteria": [
+        "Paper 1 佔全科 60%",
+        "Section A 多項選擇題佔全科 18%",
+        "Section B 短題、結構題及論述題佔全科 42%",
+        "Section A 與 B 的 Part I 主要考 Topics I-VIII，Part II 主要考 Topics IX-XII",
+        "考生須作答全卷所有題目"
+      ],
+      "completion_threshold": "兩節合計折算達全科加權 60% 內之目標分數，且 Topics I-XII 全部課題節點達標。",
+      "weight": 60,
+      "difficulty": 4,
+      "estimated_hours": null,
+      "source": "SRC-AF p.2（PUBLIC EXAMINATION）",
+      "notes": "Section A/B 為題型分割而非內容分割，故不另設一級分支，避免同一課題在兩處重複計分。課題層佔分官方未公佈【資料缺口】。"
+    },
+    {
+      "id": "CHEM-P1-T01",
+      "title": "Topic I 地球行星",
+      "prerequisites": [],
+      "marking_criteria": [
+        "describe the processes involved in fractional distillation of liquid air",
+        "evaluate the appropriateness of evaporation, distillation, crystallisation and filtration for different separation situations",
+        "demonstrate flame test, test for chloride, test for water and test for carbon dioxide",
+        "use word equations to describe chemical changes"
+      ],
+      "completion_threshold": "無提示下完成上述 4 項，並能為 3 組指定混合物選定分離法且說明理據；計時練習 ≥80%。",
+      "weight": null,
+      "difficulty": 2,
+      "estimated_hours": 3,
+      "source": "SRC-GUIDE Topic I, p. I-1–I-3",
+      "notes": "【資料缺口】官方未公佈課題層佔分；本節點屬 Paper 1 Part I 範圍。"
+    },
+    {
+      "id": "CHEM-P1-T02",
+      "title": "Topic II 微觀世界 I",
+      "prerequisites": [],
+      "marking_criteria": [
+        "deduce electronic arrangements of atoms up to Z=20 and relate position in the Periodic Table to electronic structure",
+        "describe the formation of ions and ionic bonds using electron diagrams",
+        "relate the properties of metals, giant ionic, simple molecular and giant covalent substances to their structures",
+        "perform calculations related to chemical formulae and relative molecular masses"
+      ],
+      "completion_threshold": "無提示下為 Z≤20 元素寫電子排布並推 group/period；用電子圖描述 NaCl 與 CO2 鍵合；由結構解釋四類物質熔點與導電性差異。",
+      "weight": null,
+      "difficulty": 4,
+      "estimated_hours": 8,
+      "source": "SRC-GUIDE Topic II, p. I-4–I-9",
+      "notes": "【資料缺口】官方未公佈課題層佔分。本節點為 Topic III 及 Topic VI 的共同前置。"
+    },
+    {
+      "id": "CHEM-P1-T03",
+      "title": "Topic III 金屬",
+      "prerequisites": ["CHEM-P1-T02"],
+      "marking_criteria": [
+        "transcribe word equations into chemical equations",
+        "perform calculations involving the mole and chemical equations",
+        "establish a reactivity series of metals based on experimental evidence",
+        "describe methods for the extraction of metals from their ores",
+        "explain the factors leading to corrosion and methods to prevent it"
+      ],
+      "completion_threshold": "mass↔mole↔粒子數 互換 5 題全對；以離子方程式寫 3 個置換反應並用 reactivity series 排序；提出 2 種防鏽方法及理據。",
+      "weight": null,
+      "difficulty": 4,
+      "estimated_hours": 10,
+      "source": "SRC-GUIDE Topic III, p. I-10–I-14",
+      "notes": "【資料缺口】官方未公佈課題層佔分。mole 概念在此引入，是全科定量題的唯一入口。"
+    },
+    {
+      "id": "CHEM-P1-T04",
+      "title": "Topic IV 酸與鹼",
+      "prerequisites": ["CHEM-P1-T03"],
+      "marking_criteria": [
+        "use an instrumental method of pH measurement",
+        "prepare salts by different methods",
+        "perform volumetric analysis involving acids and alkalis",
+        "apply the concepts of concentration of solution and titration results to solve stoichiometric problems",
+        "solve problems involving back titration with sufficient information given"
+      ],
+      "completion_threshold": "由 titration 數據算未知濃度（含 1 題資料齊備的 back titration）；為 3 組指定鹽各選可行製備路徑並排除不可行組合；滴定三次讀數相差 ≤0.10 cm³。",
+      "weight": null,
+      "difficulty": 4,
+      "estimated_hours": 8,
+      "source": "SRC-GUIDE Topic IV, p. I-15–I-19；Part II note IV(f), p. II-3",
+      "notes": "【資料缺口】官方未公佈課題層佔分。back titration 只在題目提供足夠資料時要求。"
+    },
+    {
+      "id": "CHEM-P1-T05",
+      "title": "Topic V 化石燃料與碳化合物",
+      "prerequisites": ["CHEM-P1-T02"],
+      "marking_criteria": [
+        "give systematic names of alkanes, alkenes, alkanols and alkanoic acids with carbon chains not more than eight carbon atoms",
+        "describe the chemical reactions of alkanes and alkenes",
+        "explain the formation of addition polymers and relate uses to structures and properties",
+        "describe the monosubstitution of methane with chlorine using suitable diagrams or equations"
+      ],
+      "completion_threshold": "C1–C8 烷烴系統命名與結構式全對；由加成聚合物推單體與重複單位；以同系物趨勢解釋沸點變化。",
+      "weight": null,
+      "difficulty": 3,
+      "estimated_hours": 9,
+      "source": "SRC-GUIDE Topic V, p. I-20–I-24；Part II notes V(b)-(d), p. II-4",
+      "notes": "【資料缺口】官方未公佈課題層佔分。單一官能基的優先次序不要求；苯的穩定性不要求解釋。"
+    },
+    {
+      "id": "CHEM-P1-T06",
+      "title": "Topic VI 微觀世界 II",
+      "prerequisites": ["CHEM-P1-T02"],
+      "marking_criteria": [
+        "explain the polar nature of molecules with reference to electronegativity, polarity of bonds and molecular shape",
+        "differentiate van der Waals' forces in non-polar and polar covalent substances",
+        "predict and draw three-dimensional diagrams of shapes of simple molecules",
+        "explain the properties of molecular crystals such as ice and C60 in terms of their structures"
+      ],
+      "completion_threshold": "判斷 3 個分子的形狀與極性；由分子間力排序 3 種物質沸點；解釋冰與 C60 的性質差異。",
+      "weight": null,
+      "difficulty": 3,
+      "estimated_hours": 7,
+      "source": "SRC-GUIDE Topic VI, p. I-25–I-27；Part II notes VI(a)-(e), p. II-4–II-5",
+      "notes": "【資料缺口】官方未公佈課題層佔分。不要求 dipole moment 數值、不要求背電負性標度、不要求鍵角。"
+    },
+    {
+      "id": "CHEM-P1-T07",
+      "title": "Topic VII 氧化還原、化學電池與電解",
+      "prerequisites": ["CHEM-P1-T03", "CHEM-P1-T04"],
+      "marking_criteria": [
+        "carry out investigations involving common oxidising and reducing agents",
+        "write chemical equations for redox reactions",
+        "predict the feasibility of a redox reaction by comparing positions in the electrochemical series",
+        "predict products in electrolysis according to factors affecting preferential discharge of ions"
+      ],
+      "completion_threshold": "由氧化數變化指認氧化劑與還原劑；配平 2 條離子方程式；由 ECS 預測電池方向與電解產物。",
+      "weight": null,
+      "difficulty": 4,
+      "estimated_hours": 9,
+      "source": "SRC-GUIDE Topic VII, p. I-28–I-32；Part II notes VII(a),(d), p. II-5",
+      "notes": "【資料缺口】官方未公佈課題層佔分。不要求描述六種電池的結構與工作原理。"
+    },
+    {
+      "id": "CHEM-P1-T08",
+      "title": "Topic VIII 化學反應與能量",
+      "prerequisites": ["CHEM-P1-T03"],
+      "marking_criteria": [
+        "explain energy changes in chemical reactions in terms of the conservation of energy",
+        "recognise enthalpy change as heat change at constant pressure",
+        "carry out experimental determination of enthalpy changes using a simple calorimetric method",
+        "apply Hess's law to calculate enthalpy changes"
+      ],
+      "completion_threshold": "由 calorimetry 數據算 ΔH（含熱容量修正）；用 Hess's law 由 2 條已知方程式推目標 ΔH，符號與方向正確。",
+      "weight": null,
+      "difficulty": 3,
+      "estimated_hours": 6,
+      "source": "SRC-GUIDE Topic VIII, p. I-33–I-34；Part II notes VIII(a),(b), p. II-5",
+      "notes": "【資料缺口】官方未公佈課題層佔分。不要求炸彈量熱計原理、不要求推導 ΔH 與恆壓熱變的關係。"
+    },
+    {
+      "id": "CHEM-P1-T09",
+      "title": "Topic IX 反應速率",
+      "prerequisites": ["CHEM-P1-T08"],
+      "marking_criteria": [
+        "select and justify techniques to follow the progress of a reaction (titrimetric analysis, volume or pressure change, mass change, colour intensity)",
+        "explain qualitatively the effects of concentration, surface area and temperature on rate of reaction",
+        "appreciate the importance of catalysts in chemical industries and biological systems"
+      ],
+      "completion_threshold": "為 2 個指定反應各選一種監測方法並說明理由；用 3 個因素預測速率變化；區分速率改變與平衡位置改變。",
+      "weight": null,
+      "difficulty": 2,
+      "estimated_hours": 4,
+      "source": "SRC-GUIDE Topic IX, p. I-35–I-38；Part II notes IX(a),(b), p. II-5",
+      "notes": "【資料缺口】官方未公佈課題層佔分。Maxwell-Boltzmann 分佈屬 Topic XIII 範圍；不要求各監測技術的計算與儀器細節。"
+    },
+    {
+      "id": "CHEM-P1-T10",
+      "title": "Topic X 化學平衡",
+      "prerequisites": ["CHEM-P1-T09"],
+      "marking_criteria": [
+        "appreciate the dynamic nature of chemical equilibrium",
+        "understand the equilibrium constant Kc and its mathematical treatment in relation to stoichiometry",
+        "predict qualitatively the effect of changes in concentration and temperature on the position of equilibrium in a homogeneous reaction",
+        "use the reaction quotient to deduce the effect of change in concentration on equilibrium position"
+      ],
+      "completion_threshold": "寫出 Kc 表達式；由平衡濃度算 Kc；由 Q 與 Kc 比較判斷移動方向；用 ΔH 符號預測溫度效應。",
+      "weight": null,
+      "difficulty": 4,
+      "estimated_hours": 7,
+      "source": "SRC-GUIDE Topic X, p. I-39–I-41；Part II note X(c), p. II-6",
+      "notes": "【資料缺口】官方未公佈課題層佔分。不要求推導 lnK 與 ΔH/RT 關係；不要求非反應物種引入的效應；不要求涉及 redox 與 acid-base 的平衡細節。"
+    },
+    {
+      "id": "CHEM-P1-T11",
+      "title": "Topic XI 碳化合物化學",
+      "prerequisites": ["CHEM-P1-T05", "CHEM-P1-T06"],
+      "marking_criteria": [
+        "give systematic names, general formulae, condensed formulae and structural formulae for alkanes, alkenes, haloalkanes, alcohols, aldehydes, ketones, carboxylic acids, esters, unsubstituted amides and primary amines",
+        "recognise structural isomerism, cis-trans isomerism and enantiomerism",
+        "describe reactions of functional groups in terms of reagents, conditions, products and observations",
+        "use chemical methods to distinguish functional groups and identify unknown carbon compounds"
+      ],
+      "completion_threshold": "C≤8 九類官能基命名全對；寫出 4 類官能基的反應（試劑、條件、觀察）；以化學測試區分 3 組指定化合物。",
+      "weight": null,
+      "difficulty": 5,
+      "estimated_hours": 12,
+      "source": "SRC-GUIDE Topic XI, p. I-42–I-47；Part II notes XI(a)-(c), p. II-6–II-7",
+      "notes": "【資料缺口】官方未公佈課題層佔分。不要求多官能基優先次序、不要求 polarimetry 與 racemic mixture 細節。"
+    },
+    {
+      "id": "CHEM-P1-T12",
+      "title": "Topic XII 化學世界的規律",
+      "prerequisites": ["CHEM-P1-T04", "CHEM-P1-T07", "CHEM-P1-T10"],
+      "marking_criteria": [
+        "describe the periodic variation in physical properties of the elements from Li to Ar",
+        "relate the periodic relationship between acid-base properties of selected oxides",
+        "describe the properties of selected transition metals and their compounds"
+      ],
+      "completion_threshold": "由 Li 至 Ar 解釋熔點與導電性的週期變化；以氧化物酸鹼性排序 3 個指定氧化物；舉 2 個過渡金屬的工業用途。",
+      "weight": null,
+      "difficulty": 3,
+      "estimated_hours": 5,
+      "source": "SRC-GUIDE Topic XII, p. I-48–I-50",
+      "notes": "【資料缺口】官方未公佈課題層佔分。本節點為整合型課題，前置依賴跨多個課題。"
+    },
+    {
+      "id": "CHEM-P2",
+      "title": "Paper 2 選修部分",
+      "prerequisites": [],
+      "marking_criteria": [
+        "Paper 2 佔全科 20%",
+        "由結構題組成，考生須作答所選 2 個選修單元的題目",
+        "每個選修單元平均佔 10%（20% ÷ 2，屬算術推算）"
+      ],
+      "completion_threshold": "兩個選修單元節點全部達標，且限時 Paper 2 模擬卷兩選修各達目標分數。",
+      "weight": 20,
+      "difficulty": 4,
+      "estimated_hours": null,
+      "source": "SRC-AF p.2（Paper 2, 20%, 1 hour）",
+      "notes": "三選二無法以 AND 前置表達，屬 schema 表達力限制【結構限制】。選修單元節點權重 10% 為算術推算，非官方逐單元公佈值。"
+    },
+    {
+      "id": "CHEM-P2-E01",
+      "title": "Topic XIII 工業化學",
+      "prerequisites": ["CHEM-P1-T08", "CHEM-P1-T10"],
+      "marking_criteria": [
+        "discuss the advantages and disadvantages of using industrial processes from social, economic and environmental perspectives",
+        "determine the rate equation of a reaction by the method of initial rate",
+        "calculate the atom economy of a chemical reaction",
+        "evaluate industrial processes using the principles of green chemistry"
+      ],
+      "completion_threshold": "給一張未見流程圖：指出各單元操作目的；就 2 個操作條件提出改變並以 equilibrium/rate/成本三軸解釋；計算 atom economy；指出 1 個環境風險點及處理。",
+      "weight": 10,
+      "difficulty": 4,
+      "estimated_hours": 12,
+      "source": "SRC-GUIDE Topic XIII, p. I-51–I-55；Part II notes XIII(a),(b),(f), p. II-8",
+      "notes": "不要求 contact process、維他命 C、醋酸製造的流程細節；不要求 half-life。2024 年修讀率 98%（SRC-BRIEF24 p.8）。"
+    },
+    {
+      "id": "CHEM-P2-E02",
+      "title": "Topic XIV 材料化學",
+      "prerequisites": ["CHEM-P1-T06"],
+      "marking_criteria": [
+        "describe the chemical structures and different phases of organic liquid crystals",
+        "identify the structural features of substances that exhibit liquid-crystalline behaviour",
+        "relate the uses of liquid crystals to their properties"
+      ],
+      "completion_threshold": "由結構判斷 3 種物質是否具液晶行為；由結構解釋 2 個液晶應用；區分四類固體結構與性質。",
+      "weight": 10,
+      "difficulty": 3,
+      "estimated_hours": 10,
+      "source": "SRC-GUIDE Topic XIV, p. I-56–I-60；Part II note XIV(d), p. II-8",
+      "notes": "不要求背液晶物質的分子式。2024 年修讀率 6%、Paper 2 折算平均 37.6%（SRC-BRIEF24 p.8），屬自選群體數據。"
+    },
+    {
+      "id": "CHEM-P2-E03",
+      "title": "Topic XV 分析化學",
+      "prerequisites": ["CHEM-P1-T04", "CHEM-P1-T11"],
+      "marking_criteria": [
+        "gather data with appropriate instruments and apparatus in quantitative analysis",
+        "record observations and data accurately and systematically",
+        "be aware of and take necessary steps to minimise possible sources of error",
+        "perform calculations on data obtained to draw evidence-based conclusions",
+        "justify the choice of an appropriate quantitative method",
+        "assess possible risks associated with quantitative analysis"
+      ],
+      "completion_threshold": "由 IR/NMR/MS 圖譜指認 3 個未知物；由滴定或比色數據算濃度；為指定樣本選分離與檢測方法並說明理據、誤差來源與風險。",
+      "weight": 10,
+      "difficulty": 4,
+      "estimated_hours": 12,
+      "source": "SRC-GUIDE Topic XV, p. I-61–I-65；Part II note XV(c), p. II-9",
+      "notes": "不要求前課題以外的新化學流程細節。2024 年修讀率 96%（SRC-BRIEF24 p.8）。"
+    },
+    {
+      "id": "CHEM-SBA",
+      "title": "SBA 校本評核",
+      "prerequisites": [],
+      "marking_criteria": [
+        "SBA 佔全科 20%，所有學校考生必修",
+        "S5 與 S6 各佔 10%",
+        "兩年內至少 1 次 Volumetric Analysis、1 次 Qualitative Analysis、2 次 Other Experiments",
+        "Investigative Study 可代替 Other Experiments（1 次 proposal + 1 次 process and report）"
+      ],
+      "completion_threshold": "完成最低評核次數，且三類評核均達校內評分標準。",
+      "weight": 20,
+      "difficulty": 2,
+      "estimated_hours": null,
+      "source": "SRC-AF p.2-3（SBA 及其評核次數與權重表）",
+      "notes": "【資料缺口】SBA Handbook 未提供，具體評分準則未取得。2024 年 SBA 平均 74.1%（SRC-BRIEF24 p.9）。"
+    },
+    {
+      "id": "CHEM-SBA-01",
+      "title": "實驗技能與探究",
+      "prerequisites": ["CHEM-P1-T04"],
+      "marking_criteria": [
+        "designing experiments",
+        "reporting and interpreting experimental results",
+        "practical skills, process skills and reporting skills demonstrated through investigative study"
+      ],
+      "completion_threshold": "完成 1 次 VA、1 次 QA、2 次 EXPT；記錄表含單位與不確定度；就 1 個誤差來源提出可執行改良。",
+      "weight": null,
+      "difficulty": 3,
+      "estimated_hours": 10,
+      "source": "SRC-AF p.2-3；SBA Handbook（未提供）",
+      "notes": "【資料缺口】SBA 評分準則細節在 SBA Handbook，未取得；本節點權重併入 CHEM-SBA 的 20%。"
+    }
+  ]
+}
