@@ -1,6 +1,8 @@
 # 國策樹系統 — 架構、Firestore Schema、Cloud Functions、Vue 元件
 
 > 文件狀態：設計稿。所有寫入路徑皆為「先校驗、後人工確認、再由具權限流程提交」，本文件不執行任何資料庫寫入。
+>
+> 注意：本文件對應舊的 Blaze / Cloud Functions 版（13 欄位 schema）。v3.1 定稿 JSON（10 欄位、37 節點）的內部完整版請見 `focus-tree-internal/README.md`。
 
 ## 1. 範圍與技術決策
 

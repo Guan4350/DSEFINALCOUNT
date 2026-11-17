@@ -529,6 +529,35 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 國策樹內部完整版：樹資料只給 internal_access 白名單，不進公開 bundle。
+    function hasInternalAccess() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/internal_access/$(request.auth.uid))
+        && get(/databases/$(database)/documents/internal_access/$(request.auth.uid)).data.active == true;
+    }
+
+    match /internal_focus_trees/{treeId} {
+      allow read: if hasInternalAccess();
+      allow write: if false;
+    }
+
+    match /internal_access/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    match /internal_focus_progress/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(['tree_id', 'statuses', 'updated_at'])
+        && request.resource.data.tree_id is string
+        && request.resource.data.tree_id.size() <= 64
+        && request.resource.data.statuses is map
+        && request.resource.data.statuses.size() <= 60
+        && request.resource.data.updated_at == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
