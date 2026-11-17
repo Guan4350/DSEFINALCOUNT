@@ -1,0 +1,27 @@
+{
+  "file": "chem_focus_tree.final.json",
+  "version": "chem-focus-tree-3.1.0",
+  "status": "LOCKED",
+  "sha256": "7a7da0c292eb0346dbb77ef119063249b96b247464b23ace16cd955b010fab32",
+  "bytes": 57517,
+  "locked_at": "2026-11-17T22:30:01+08:00",
+  "node_count": 37,
+  "counts": {
+    "root": 1,
+    "papers": 2,
+    "sba": 2,
+    "topics": 12,
+    "electives": 3,
+    "ms_index": 1,
+    "ms_questions": 16,
+    "sum": 37
+  },
+  "weight_closure": {
+    "root": 100,
+    "paper1": 60,
+    "paper2": 20,
+    "sba": 20
+  },
+  "open_gaps": 13,
+  "change_rule": "鎖定後任何結構或數據變更須開新版本號並重新簽收；不得原地修改本檔案。"
+}
