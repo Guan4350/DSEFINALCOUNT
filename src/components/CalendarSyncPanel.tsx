@@ -121,7 +121,10 @@ export function CalendarSyncPanel({
       setIcalInput(url);
       showToast('已啟用 iCloud/iCal 自動同步；GitHub Actions 會每 60 分鐘更新，毋須再手動匯入。', 'success');
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : String(nextError);
+      const rawMessage = nextError instanceof Error ? nextError.message : String(nextError);
+      const message = rawMessage.toLowerCase().includes('permission')
+        ? 'Firestore 權限不足：請重新 publish 最新 firestore.rules（calendarSyncConfig 只限本人讀寫）。'
+        : rawMessage;
       setError(message);
       showToast(`啟用失敗：${message}`, 'error');
     } finally {

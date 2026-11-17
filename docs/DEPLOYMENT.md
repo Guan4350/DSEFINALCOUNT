@@ -99,7 +99,7 @@ Restart `pnpm dev`. The sidebar should switch to **Cloud idle**, and the header 
 
 Open [../firestore.rules](../firestore.rules) and paste it into **Firestore Database → Rules → Publish**.
 
-> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. `calendarSyncConfig` now also validates `icalAutoUrl`, `icalAutoEnabled` and auto-sync status fields. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
+> The settings document now includes `clockOffsetMs` and `selectedSubjectIds`, the leaderboard includes `weeklySeconds`/`weekKey`, and new `timerState`, `timerSessions`, `leaderboardWinner`, `winnerCardSubmissions`, `userCalendarEvents`, `calendarSyncConfig` and `userPreferences` paths are validated. `calendarSyncConfig` is owner-only without a field-shape check so the growing auto-sync status fields cannot reject a valid browser write. If you deployed an earlier build, **republish these rules** before changing settings, saving a timer, syncing a calendar or switching theme; otherwise Firestore rejects the write with `permission-denied`. No Storage rules are required.
 
 ## 5. Enable GitHub Actions iCal auto-sync (Spark path)
 
