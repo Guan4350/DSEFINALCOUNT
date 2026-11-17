@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FOCUS_NODES, type PublicFocusNode } from '../data/chemistryTree';
 import { useFocusProgress, type NodeStatus } from '../hooks/useFocusProgress';
 import { Modal } from './Modal';
@@ -8,6 +8,8 @@ const NODE_H = 90;
 const BUS_X = 270;
 const CANVAS_W = 1430;
 const CANVAS_H = 980;
+const MIN_ZOOM = 0.35;
+const MAX_ZOOM = 1.6;
 
 const POSITIONS: Record<string, { x: number; y: number }> = {
   'CHEM-P1': { x: 30, y: 150 },
@@ -44,6 +46,8 @@ const CATEGORY_LABEL: Record<PublicFocusNode['category'], string> = {
   sba: 'SBA 子項',
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 function glyph(node: PublicFocusNode): string {
   if (node.id === 'CHEM-ROOT') return '★';
   if (node.id === 'CHEM-P1') return 'P1';
@@ -76,6 +80,16 @@ function linkPath(from: PublicFocusNode, to: PublicFocusNode): string {
 export function FocusView() {
   const { statuses, ready, setStatus } = useFocusProgress();
   const [active, setActive] = useState<PublicFocusNode | null>(null);
+  const [zoom, setZoom] = useState(0.8);
+  const [pan, setPan] = useState({ x: 40, y: 20 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   const base = import.meta.env.BASE_URL;
   const byId = useMemo(() => new Map(FOCUS_NODES.map(node => [node.id, node])), []);
@@ -85,7 +99,8 @@ export function FocusView() {
 
   const statusOf = (node: PublicFocusNode): NodeStatus => statuses[node.id] ?? 'not_started';
 
-  const modules = FOCUS_NODES.filter(node => node.category === 'module');
+  const modules = useMemo(() => FOCUS_NODES.filter(node => node.category === 'module'), []);
+
   const weighted = useMemo(() => {
     const total = modules.reduce((sum, node) => sum + (node.weight ?? 0), 0);
     if (total <= 0) return 0;
@@ -135,12 +150,107 @@ export function FocusView() {
     [byId],
   );
 
+  const fitToView = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    if (rect.width < 80 || rect.height < 80) return;
+    const scale = clamp(Math.min((rect.width - 72) / CANVAS_W, (rect.height - 104) / CANVAS_H), MIN_ZOOM, 1.05);
+    setZoom(scale);
+    setPan({
+      x: (rect.width - CANVAS_W * scale) / 2,
+      y: (rect.height - CANVAS_H * scale) / 2 + 16,
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(fitToView, 80);
+    return () => window.clearTimeout(timer);
+  }, [fitToView, isFullscreen]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !active) setIsFullscreen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isFullscreen, active]);
+
+  const zoomStep = (delta: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    changeZoom(zoom + delta, { x: rect.width / 2, y: rect.height / 2 });
+  };
+
+  const changeZoom = useCallback((next: number, anchor?: { x: number; y: number }) => {
+    const target = clamp(next, MIN_ZOOM, MAX_ZOOM);
+    if (anchor) {
+      const ratio = target / zoomRef.current;
+      setPan(current => ({
+        x: anchor.x - (anchor.x - current.x) * ratio,
+        y: anchor.y - (anchor.y - current.y) * ratio,
+      }));
+    }
+    setZoom(target);
+  }, []);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const factor = event.deltaY > 0 ? 0.9 : 1.1;
+      changeZoom(zoomRef.current * factor, anchor);
+    };
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onWheel);
+  }, [changeZoom]);
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest('.tree-node')) return;
+    dragRef.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    setPan({
+      x: drag.panX + (event.clientX - drag.x),
+      y: drag.panY + (event.clientY - drag.y),
+    });
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragging(false);
+  };
+
+  function toggleFullscreen() {
+    setIsFullscreen(value => !value);
+  }
+
   const edgeClass = (to: PublicFocusNode): string => {
     const status = statusOf(to);
     if (status === 'completed') return 'done';
     if (status === 'in_progress') return 'active';
     return unlocked(to) ? 'open' : 'locked';
   };
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isFullscreen]);
 
   const activeStatus = active ? statusOf(active) : 'not_started';
   const activeUnlocked = active ? unlocked(active) : false;
@@ -180,57 +290,97 @@ export function FocusView() {
         </div>
       </div>
 
-      <div className="tree-shell">
-        <div className="tree-canvas" style={{ width: CANVAS_W, height: CANVAS_H }}>
-          <svg className="tree-links" width={CANVAS_W} height={CANVAS_H} aria-hidden="true">
-            {groupEdges.map(edge => {
-              const parent = byId.get(edge.parent);
-              if (!parent) return null;
-              return (
+      <div className={`tree-stage${isFullscreen ? ' is-fullscreen' : ''}`} ref={stageRef}>
+        <div className="tree-hud">
+          <div className="tree-hud-title">
+            <strong>國策</strong>
+            <span>{weighted.toFixed(1)}% · 必修 {counts.topics.done}/{counts.topics.total} · 選修 {counts.electives.done}/{counts.electives.total}</span>
+          </div>
+          <div className="tree-hud-actions">
+            <button type="button" onClick={() => zoomStep(-0.1)} aria-label="縮小">−</button>
+            <span className="tree-zoom-label">{Math.round(zoom * 100)}%</span>
+            <button type="button" onClick={() => zoomStep(0.1)} aria-label="放大">＋</button>
+            <button type="button" onClick={fitToView}>FIT</button>
+            <button type="button" onClick={toggleFullscreen}>
+              {isFullscreen ? '退出全屏' : '全屏'}
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`tree-viewport${dragging ? ' is-dragging' : ''}`}
+          ref={viewportRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDoubleClick={event => {
+            if (!(event.target as HTMLElement).closest('.tree-node')) fitToView();
+          }}
+        >
+          <div
+            className="tree-canvas"
+            style={{
+              width: CANVAS_W,
+              height: CANVAS_H,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: '0 0',
+            }}
+          >
+            <svg className="tree-links" width={CANVAS_W} height={CANVAS_H} aria-hidden="true">
+              {groupEdges.map(edge => {
+                const parent = byId.get(edge.parent);
+                if (!parent) return null;
+                return (
+                  <path
+                    key={`g-${edge.parent}-${edge.child.id}`}
+                    className={`tree-group-line${hovered && (edge.parent === hovered || edge.child.id === hovered) ? ' is-related' : hovered ? ' is-muted' : ''}`}
+                    d={groupPath(parent, edge.child)}
+                  />
+                );
+              })}
+              {linkEdges.map(edge => (
                 <path
-                  key={`g-${edge.parent}-${edge.child.id}`}
-                  className="tree-group-line"
-                  d={groupPath(parent, edge.child)}
+                  key={`l-${edge.from.id}-${edge.to.id}`}
+                  className={`tree-link ${edgeClass(edge.to)}${hovered && (edge.from.id === hovered || edge.to.id === hovered) ? ' is-related' : hovered ? ' is-muted' : ''}`}
+                  d={linkPath(edge.from, edge.to)}
                 />
+              ))}
+            </svg>
+
+            {FOCUS_NODES.map(node => {
+              const position = POSITIONS[node.id];
+              if (!position) return null;
+              const status = statusOf(node);
+              const isUnlocked = unlocked(node);
+              return (
+                <button
+                  key={node.id}
+                  type="button"
+                  className={`tree-node ${node.category} ${status} ${isUnlocked || status === 'completed' ? 'unlocked' : 'locked'}`}
+                  style={{ left: position.x, top: position.y, width: NODE_W, height: NODE_H }}
+                  onClick={() => setActive(node)}
+                  onMouseEnter={() => setHovered(node.id)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  <span className="tree-icon">
+                    {node.icon ? (
+                      <img src={`${base}icons/topics/${node.icon}`} alt="" loading="lazy" />
+                    ) : (
+                      <span className="tree-glyph">{glyph(node)}</span>
+                    )}
+                  </span>
+                  <span className="tree-text">
+                    <strong>{node.title}</strong>
+                    <em>{STATUS_LABEL[status]}{node.weight !== null ? ` · ${node.weight}%` : ''}</em>
+                  </span>
+                </button>
               );
             })}
-            {linkEdges.map(edge => (
-              <path
-                key={`l-${edge.from.id}-${edge.to.id}`}
-                className={`tree-link ${edgeClass(edge.to)}`}
-                d={linkPath(edge.from, edge.to)}
-              />
-            ))}
-          </svg>
-
-          {FOCUS_NODES.map(node => {
-            const position = POSITIONS[node.id];
-            if (!position) return null;
-            const status = statusOf(node);
-            const isUnlocked = unlocked(node);
-            return (
-              <button
-                key={node.id}
-                type="button"
-                className={`tree-node ${node.category} ${status} ${isUnlocked || status === 'completed' ? 'unlocked' : 'locked'}`}
-                style={{ left: position.x, top: position.y, width: NODE_W, height: NODE_H }}
-                onClick={() => setActive(node)}
-              >
-                <span className="tree-icon">
-                  {node.icon ? (
-                    <img src={`${base}icons/topics/${node.icon}`} alt="" loading="lazy" />
-                  ) : (
-                    <span className="tree-glyph">{glyph(node)}</span>
-                  )}
-                </span>
-                <span className="tree-text">
-                  <strong>{node.title}</strong>
-                  <em>{STATUS_LABEL[status]}{node.weight !== null ? ` · ${node.weight}%` : ''}</em>
-                </span>
-              </button>
-            );
-          })}
+          </div>
         </div>
+
+        <div className="tree-hint">拖曳平移 · 滾輪縮放 · 點節點查看</div>
       </div>
 
       <p className="focus-note">
