@@ -12,6 +12,7 @@ import ProgressHeader from './components/ProgressHeader.vue';
 import NodeCard from './components/NodeCard.vue';
 import NodeDrawer from './components/NodeDrawer.vue';
 import DebugPanel from './components/DebugPanel.vue';
+import IconBoard from './components/IconBoard.vue';
 import { auth } from './lib/firebase';
 import { emitNodeSelected } from './lib/advisor';
 import { logError, logInfo } from './lib/log';
@@ -25,6 +26,7 @@ const signingIn = ref(false);
 const authError = ref('');
 const selected = ref<FocusNode | null>(null);
 const showDebug = ref(store.debug);
+const activeTab = ref<'board' | 'tree'>('board');
 
 let unsubscribeAuth: Unsubscribe | null = null;
 
@@ -73,6 +75,19 @@ function openNode(node: FocusNode) {
   emitNodeSelected(node);
 }
 
+function switchTab(tab: 'board' | 'tree') {
+  activeTab.value = tab;
+  if (tab === 'board') selected.value = null;
+}
+
+function openNodeById(nodeId: string) {
+  const node = store.nodeById(nodeId);
+  if (!node) return;
+  activeTab.value = 'tree';
+  selected.value = node;
+  emitNodeSelected(node);
+}
+
 async function setStatus(status: NodeStatus) {
   if (!selected.value) return;
   await store.setStatus(selected.value.id, status);
@@ -100,6 +115,14 @@ async function setStatus(status: NodeStatus) {
         <p class="eyebrow">INTERNAL · v{{ store.tree?.release.version ?? '—' }}</p>
         <strong>Chemistry 國策樹</strong>
       </div>
+      <nav class="tabs">
+        <button type="button" :class="{ active: activeTab === 'board' }" @click="switchTab('board')">
+          國策
+        </button>
+        <button type="button" :class="{ active: activeTab === 'tree' }" @click="switchTab('tree')">
+          樹狀圖
+        </button>
+      </nav>
       <div class="account">
         <span>{{ user.email }}</span>
         <button class="btn small" type="button" @click="signOutNow">登出</button>
@@ -130,7 +153,14 @@ async function setStatus(status: NodeStatus) {
 
         <p v-if="store.error" class="error">{{ store.error }}</p>
 
-        <section class="groups">
+        <IconBoard
+          v-if="activeTab === 'board'"
+          :statuses="store.statuses"
+          :node-by-id="store.nodeById"
+          @open="openNodeById"
+        />
+
+        <section v-else class="groups">
           <section
             v-for="group in store.groups"
             :key="group.key"
@@ -238,6 +268,29 @@ async function setStatus(status: NodeStatus) {
 
 .topbar strong {
   font-size: 15px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.tabs button {
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  border-color: var(--line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .account {

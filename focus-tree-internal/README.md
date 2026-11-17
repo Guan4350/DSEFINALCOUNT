@@ -46,6 +46,14 @@ internal_focus_progress/{uid}
 - Spark 沒有 Functions，前置檢查在**前端**執行；Firestore Rules 只保證「只能寫自己的進度」，不驗證圖結構。這是 Spark 的取捨。
 - 「三選二」無 schema 表達（G08），UI 只提示，不強制。
 
+## 國策圖標欄目
+
+- 頂部 tab：**國策**（18 個主題圖標）／**樹狀圖**（37 節點）。
+- 圖標已從提供的 6×3 拼圖裁切、去背，存放於 `public/icons/topics/`。
+- 中英雙語標籤在 `src/data/topicIcons.ts`，與節點的對應是**展示層設定**，不改動定稿資料。
+- 已綁定：Topic I–XV、Paper 2、SBA-01 等。
+- 待綁定：`化學基礎概念`、`計量分析基礎`，因定稿沒有單一官方節點，UI 明確標示而不強行對應。
+
 ## 本機啟動
 
 ```bash
