@@ -61,16 +61,25 @@ function parseEvent(component: ICAL.Component, subjects: Subject[], warnings: st
       return undefined;
     }
     const allDay = Boolean(event.startDate.isDate);
-    const summary = event.summary || '未命名事件';
     const categories = text(component.getFirstPropertyValue('categories'));
+    const description = text(event.description || component.getFirstPropertyValue('description')).trim();
+    const location = text(component.getFirstPropertyValue('location')).trim();
+    // Some published calendars contain VEVENTs with an empty SUMMARY. A
+    // blank title still produces a bar in FullCalendar but no visible text,
+    // so fall back to the first description line / location before using a
+    // generic label.
+    const rawSummary = text(event.summary).trim();
+    const summary = rawSummary
+      || description.split(/\r?\n/)[0].trim().slice(0, 120)
+      || location.slice(0, 120)
+      || '未命名事件';
+    if (!rawSummary) warnings.push('一個 iCal 事件沒有標題，已用描述或地點代替。');
     const subject = findSubject(subjects, summary, categories);
     const rruleProp = component.getFirstProperty('rrule');
     const rruleValue = rruleProp?.getFirstValue();
     const rrule = rruleValue ? String(rruleValue) : undefined;
     const end = event.endDate ? icalTimeToLocal(event.endDate, allDay) : undefined;
     const updatedAt = componentDate(component, 'last-modified') || componentDate(component, 'dtstamp') || new Date().toISOString();
-    const description = event.description || text(component.getFirstPropertyValue('description'));
-    const location = text(component.getFirstPropertyValue('location'));
 
     return {
       id: uid('evt'),

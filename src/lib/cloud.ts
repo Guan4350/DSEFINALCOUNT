@@ -105,7 +105,10 @@ export function eventFromData(id: string, data: DocumentData): CalendarEvent {
   return {
     id,
     uid: asString(data.uid, id),
-    title: asString(data.title, '未命名事件'),
+    // Firestore may contain events written by an older importer with an
+    // empty/whitespace title. Never feed a blank title to FullCalendar: it
+    // renders an empty bar with no text, which looks like missing data.
+    title: asString(data.title).trim() || '未命名事件',
     start: asString(data.start, todayISO()),
     end: asString(data.end) || undefined,
     allDay: asBool(data.allDay, true),

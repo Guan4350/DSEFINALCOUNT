@@ -168,7 +168,19 @@ function parseFeed(text, uid) {
           continue;
         }
         const allDay = Boolean(event.startDate.isDate);
-        const summary = event.summary || '未命名 iCal 事件';
+        const description = String(event.description || '').trim();
+        const location = String(component.getFirstPropertyValue('location') || '').trim();
+        // Empty SUMMARY is legal iCalendar and appears in some published
+        // feeds. Without a fallback the website stores title:"" and
+        // FullCalendar draws an unreadable empty bar.
+        const rawSummary = String(event.summary || '').trim();
+        const summary = rawSummary
+          || description.split(/\r?\n/)[0].trim().slice(0, 120)
+          || location.slice(0, 120)
+          || '未命名 iCal 事件';
+        if (!rawSummary) {
+          warnings.push(`empty SUMMARY for ${event.uid || 'VEVENT'}; used fallback title`);
+        }
         const categories = String(component.getFirstPropertyValue('categories') || '');
         const rruleValue = component.getFirstProperty('rrule')?.getFirstValue();
         const rrule = rruleValue ? String(rruleValue) : '';
@@ -187,8 +199,8 @@ function parseFeed(text, uid) {
           type: deriveType(summary, categories),
           subjectId: mapSubject(summary),
           paper: '',
-          description: (event.description || '').slice(0, 4000),
-          location: String(component.getFirstPropertyValue('location') || '').slice(0, 200),
+          description: description.slice(0, 4000),
+          location: location.slice(0, 200),
           rrule: rrule.slice(0, 1000),
           source: 'ics',
           externalId,

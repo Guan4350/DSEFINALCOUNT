@@ -107,7 +107,9 @@ export function CalendarView() {
         const style = eventCategoryStyle(categoryColors, event.type);
         return {
           id: event.id,
-          title: event.title,
+          // FullCalendar renders `title || &nbsp;`, so an empty title becomes
+          // a blank bar. Keep a readable label even for legacy/imported data.
+          title: event.title?.trim() || '未命名事件',
           start: event.start,
           end: event.end,
           allDay: event.allDay,
