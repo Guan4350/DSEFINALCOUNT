@@ -381,6 +381,17 @@ exports.syncIcal = onSchedule(
   },
 );
 
+// 30-minute HKO rhrread cache. On Spark, the same core is run by
+// .github/workflows/weather-sync.yml instead.
+try {
+  const weather = require('./weather');
+  exports.syncWeather = weather.syncWeather;
+} catch (error) {
+  logger.warn('[weather-sync] scheduler not registered', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+
 // 國策樹 callables。需先執行 `npm run build:focus-tree` 產生 lib/focus-tree。
 try {
   const focusTree = require('./lib/focus-tree');

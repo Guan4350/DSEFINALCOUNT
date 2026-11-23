@@ -1,0 +1,35 @@
+name: Weather cache sync
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. Every 30 minutes; actual start may be delayed.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weather-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install weather sync dependency
+        run: npm ci --prefix scripts/weather-sync
+
+      - name: Refresh HKO weather cache
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/weather-sync/sync.js

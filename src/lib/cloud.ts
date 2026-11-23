@@ -6,6 +6,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -29,6 +30,8 @@ import type {
   Task,
   ThemePreference,
   TimerSession,
+  WeatherCategory,
+  WeatherSnapshot,
 } from '../types';
 import { addDays, todayISO } from './date';
 import { normalizeCategoryColors } from './categoryColors';
@@ -461,6 +464,86 @@ export async function fetchCalendarSyncConfig(uid: string): Promise<CalendarSync
     icalLastHttpStatus: asNumber(data.icalLastHttpStatus, 0),
     updatedAt: timestampToISO(data.updatedAt),
   };
+}
+
+const WEATHER_CATEGORIES: WeatherCategory[] = [
+  'sunny',
+  'cloudy',
+  'overcast',
+  'lightRain',
+  'heavyRain',
+  'windy',
+  'fog',
+  'cold',
+  'hot',
+  'thunder',
+];
+
+function weatherCategory(value: unknown): WeatherCategory {
+  return WEATHER_CATEGORIES.includes(value as WeatherCategory)
+    ? (value as WeatherCategory)
+    : 'cloudy';
+}
+
+export function weatherFromData(data: DocumentData): WeatherSnapshot {
+  return {
+    condition: asString(data.condition, '天氣報告') || '天氣報告',
+    conditionCode: Math.max(0, Math.round(asNumber(data.conditionCode, 0))),
+    category: weatherCategory(data.category),
+    temperature: asNumber(data.temperature, 0),
+    temperatureUnit: asString(data.temperatureUnit, 'C') || 'C',
+    temperaturePlace: asString(data.temperaturePlace, '香港天文台') || '香港天文台',
+    humidity: Math.max(0, Math.round(asNumber(data.humidity, 0))),
+    humidityUnit: asString(data.humidityUnit, 'percent') || 'percent',
+    humidityPlace: asString(data.humidityPlace, '香港天文台') || '香港天文台',
+    quoteText: asString(data.quoteText),
+    quoteSource: asString(data.quoteSource),
+    weatherUpdateTime: asString(data.weatherUpdateTime),
+    iconUpdateTime: asString(data.iconUpdateTime) || undefined,
+    fetchedAt: timestampToISO(data.fetchedAt) || asString(data.fetchedAt),
+    lastAttemptAt: timestampToISO(data.lastAttemptAt) || asString(data.lastAttemptAt) || undefined,
+    lastError: asString(data.lastError) || undefined,
+    stale: data.stale === true,
+    source: 'hko-rhrread',
+    lang: 'tc',
+  };
+}
+
+/** One-shot read of the global cache. */
+export async function fetchWeatherSnapshot(): Promise<WeatherSnapshot | null> {
+  if (!db) return null;
+  const snapshot = await getDoc(doc(db, 'weather', 'current'));
+  recordUsage(1, 0);
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data();
+  // A failed first run creates only lastAttemptAt/lastError/stale. Do not
+  // render that as 0°C / 0% weather.
+  return data.fetchedAt ? weatherFromData(data) : null;
+}
+
+/**
+ * Listen to the backend cache. This is Firestore-only: the browser must never
+ * request data.weather.gov.hk directly.
+ */
+export function watchWeatherSnapshot(
+  onChange: (snapshot: WeatherSnapshot | null) => void,
+  onError?: (error: unknown) => void,
+): () => void {
+  if (!db) {
+    onChange(null);
+    return () => undefined;
+  }
+  return onSnapshot(
+    doc(db, 'weather', 'current'),
+    (snapshot) => {
+      recordUsage(1, 0);
+      const data = snapshot.exists() ? snapshot.data() : undefined;
+      onChange(data && data.fetchedAt ? weatherFromData(data) : null);
+    },
+    (error) => {
+      onError?.(error);
+    },
+  );
 }
 
 export async function saveCalendarSyncConfig(uid: string, config: CalendarSyncConfig): Promise<void> {

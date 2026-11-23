@@ -558,6 +558,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Global HKO rhrread cache. Written only by Cloud Functions / the GitHub
+    // Actions runner with a service account (Admin SDK bypasses these rules).
+    match /weather/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

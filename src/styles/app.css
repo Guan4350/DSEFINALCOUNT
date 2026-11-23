@@ -5855,3 +5855,200 @@ html[data-texture='on'][data-skin='train'] body::after {
 .tree-node:hover {
   z-index: 4;
 }
+
+/* --------------------------------------------------------------------------
+   HKO weather cache card — quiet, ink-and-paper treatment that follows the
+   active Octavarium/Train skin.
+   -------------------------------------------------------------------------- */
+
+.weather-card {
+  position: relative;
+  overflow: hidden;
+  padding: 19px 20px 15px;
+  background:
+    radial-gradient(120% 110% at 100% 0%, var(--accent-soft), transparent 56%),
+    var(--surface);
+}
+
+.dashboard-side > .weather-card {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.dashboard-side > .weather-card + .streak-card {
+  margin-left: 0;
+}
+
+.weather-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.weather-heading {
+  min-width: 0;
+}
+
+.weather-condition {
+  margin-top: 5px;
+  font-family: var(--font-display);
+  font-size: 27px;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+}
+
+.weather-place {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.weather-code {
+  font-family: var(--font-mono);
+  opacity: 0.55;
+}
+
+.weather-glyph-wrap {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--accent-strong);
+}
+
+.weather-glyph {
+  display: block;
+  width: 37px;
+  height: 37px;
+  overflow: visible;
+}
+
+.weather-glyph-muted {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--muted);
+}
+
+.weather-readings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.weather-reading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 0 11px;
+}
+
+.weather-reading + .weather-reading {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.weather-reading-value {
+  font-family: var(--font-display);
+  font-size: 33px;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.weather-reading-value small {
+  margin-left: 3px;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.weather-reading-label {
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.weather-quote {
+  margin: 14px 0 0;
+  padding: 0 0 0 13px;
+  border-left: 1px solid var(--accent);
+}
+
+.weather-quote p {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+}
+
+.weather-quote footer {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.weather-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 13px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+}
+
+.weather-stale {
+  color: var(--exam-text);
+  white-space: nowrap;
+}
+
+.weather-live {
+  color: var(--accent-strong);
+  white-space: nowrap;
+}
+
+.weather-card.is-stale .weather-glyph-wrap {
+  color: var(--muted);
+}
+
+.weather-card-placeholder {
+  min-height: 150px;
+}
+
+.weather-placeholder-copy {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .weather-condition {
+    font-size: 24px;
+  }
+
+  .weather-reading-value {
+    font-size: 29px;
+  }
+}
+

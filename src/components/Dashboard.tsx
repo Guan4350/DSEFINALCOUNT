@@ -15,6 +15,7 @@ import { upcomingExamEvents } from '../lib/exams';
 import { eventCategoryStyle } from '../lib/categoryColors';
 import { SubjectBadge } from './SubjectBadge';
 import { Heatmap } from './Heatmap';
+import { WeatherCard } from './WeatherCard';
 import { TaskEditor } from './TaskEditor';
 import { PrecisionCountdown } from './PrecisionCountdown';
 import { Icon } from './Icons';
@@ -421,6 +422,8 @@ export function Dashboard() {
         </div>
 
         <aside className="dashboard-side">
+          <WeatherCard />
+
           <section className="card streak-card">
             <div className="between">
               <div>

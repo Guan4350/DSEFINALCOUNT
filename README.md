@@ -17,6 +17,7 @@ The visual system now offers **Octavarium** (sky / grass / silver, default) and 
 - **Two-way exam calendar** — click a date to create an exam/task, or click an existing event/task to edit it; changes appear on the calendar immediately. Exams support subject, date/time (HH:MM), notes and optional recurrence.
 - **Google Calendar two-way sync** — connect with an explicit Calendar OAuth consent, pull Google events into `userCalendarEvents`, and push website create/edit/delete back to Google. Sync is **manual only**, with a 60-second cooldown, to avoid API quota surprises. The access token is kept in sessionStorage; reconnect after it expires.
 - **Apple iCal auto-sync (Spark-friendly)** — save a public iCloud/iCal URL once in Settings. A GitHub Actions hourly workflow fetches it without browser CORS, parses VEVENTs, and reconciles `userCalendarEvents` (add/update/delete). It is one-way Apple → website only. The input still accepts a pasted `BEGIN:VCALENDAR…` source for a one-off import.
+- **HKO weather card** — a quiet Hong Kong Observatory card on the dashboard. A backend job (GitHub Actions on Spark, optional Cloud Function on Blaze) fetches `rhrread` every 30 minutes, caches the condition/readings/selected quote in Firestore `weather/current`, and the browser only listens to that cache. A failed HKO request keeps the previous card and marks it `天氣資料更新中`. See [docs/WEATHER.md](docs/WEATHER.md).
 - **iPad-style calendar + category colours** — full-width coloured event bars with automatic stacking, red Today badge, red exam/deadline edges, and user-owned DSE / Mock / 校內SBA / 溫書 / 自訂 colours. The palette is stored in `userPreferences` and is independent of the active skin.
 - **Global theme skins** — follow-system / Octavarium / Train of Thought, with light/dark appearance and a background-texture toggle. Preferences live in `userPreferences` and sync across devices; guests use localStorage. Themes are CSS variables only, so all existing pages, popups and module-2 timer/winner surfaces inherit them.
 - **Dashboard horizon tags** — the Next on the horizon list and countdown card show the same category colours; the card has a quick Octavarium/Train switch while preserving countdown, subject, check-in and progress logic.
@@ -101,6 +102,17 @@ The Spark-friendly scheduler is a **GitHub Actions hourly workflow** in [.github
 3. Push, then run **Actions → iCal auto-sync → Run workflow** (or `gh workflow run ical-sync.yml`).
 
 The workflow runs hourly (`0 * * * *`), handles up to 25 enabled users sequentially, and logs per-user HTTP/parse failures without aborting the run. The optional [functions/](functions/) Blaze path remains available; do not run both schedulers.
+
+### HKO weather cache deployment
+
+The card uses **one global cache document**, not per-user API calls. On Spark, [.github/workflows/weather-sync.yml](.github/workflows/weather-sync.yml) runs every 30 minutes; on Blaze, deploy `syncWeather` from [functions/weather.js](functions/weather.js). Both use [functions/weather-core.js](functions/weather-core.js) and the quote table [functions/weatherQuotes.json](functions/weatherQuotes.json).
+
+1. Publish the updated `firestore.rules` (signed-in read of `weather/{docId}`; writes denied).
+2. Reuse the `FIREBASE_SERVICE_ACCOUNT` secret with `roles/datastore.user`.
+3. Run **Actions → Weather cache sync → Run workflow** once.
+4. Confirm `weather/current` has `stale: false`, `temperature`, `humidity`, `quoteText`, and `quoteSource`.
+
+The browser never calls HKO. If the backend fails, the old document is kept and the card shows `天氣資料更新中`. Full details: [docs/WEATHER.md](docs/WEATHER.md).
 
 ### Authentication
 
@@ -250,8 +262,9 @@ src/lib/
 src/styles/            Tailwind theme variables + hand-authored layout CSS
 firestore.rules        Paste directly into Firebase Console
 firestore.indexes.json
-functions/             Optional Blaze Functions iCal sync
+functions/             Optional Blaze Functions iCal/weather sync + weather core
 scripts/ical-sync/     Spark-compatible GitHub Actions iCal runner
+scripts/weather-sync/  Spark-compatible GitHub Actions HKO weather runner
 docs/                  Deployment, security, architecture
 worker/                Deferred Mode C prototype; not used by Mode B UI
 ```
@@ -288,6 +301,7 @@ Real Google login, Firestore writes and leaderboard updates require your Firebas
 ## Docs
 
 - [Deployment: Firebase Spark, GitHub Actions iCal sync, GitHub Pages](docs/DEPLOYMENT.md)
+- [Weather cache: HKO, 30-minute backend, quotes, fallback](docs/WEATHER.md)
 - [Architecture: Mode A/B, sync flow, data model](docs/ARCHITECTURE.md)
 - [Security: rules, privacy, anti-abuse, quota](docs/SECURITY.md)
 - [Deferred Mode C: CalDAV / Google Calendar notes](docs/CALDAV.md)

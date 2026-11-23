@@ -166,6 +166,29 @@ Manual smoke checks after publishing:
 20. Test a pasted `BEGIN:VCALENDAR…END:VCALENDAR` source with **只匯入一次**; confirm it still works without enabling auto-sync.
 21. Theme: switch 跟隨系統 / Octavarium / Train of Thought, toggle light/dark and background texture. Confirm every page and the module-2 timer/winner surfaces change, then reload and check `userPreferences/{uid}`.
 22. Calendar colours: change all five category colours in Settings, confirm full-width calendar bars, Dashboard horizon tags and the countdown card use them, then switch skin and confirm the colours do not reset.
+23. Weather card: run **Actions → Weather cache sync → Run workflow**, confirm `weather/current` contains a condition, temperature, humidity, `quoteText` and `quoteSource`, then reload the dashboard. Temporarily block HKO or force a failed run and confirm the previous card remains with `天氣資料更新中`.
+
+## 5b. Enable HKO weather cache (Spark path)
+
+The dashboard weather card reads only `weather/current`; the browser never calls
+HKO. On Spark, refresh it with [../.github/workflows/weather-sync.yml](../.github/workflows/weather-sync.yml) every 30 minutes:
+
+1. Reuse the same `FIREBASE_SERVICE_ACCOUNT` secret and `roles/datastore.user`
+   service account as the iCal runner.
+2. Publish the updated `firestore.rules` (signed-in read of `weather/{docId}`;
+   browser writes denied).
+3. Push, then run **Actions → Weather cache sync → Run workflow**.
+4. Confirm `weather/current` contains `stale: false`, `temperature`,
+   `humidity`, `quoteText`, `quoteSource` and `fetchedAt`.
+
+On Blaze, deploy the optional scheduler instead:
+
+```bash
+firebase deploy --only functions:syncWeather --config firebase.functions.json
+```
+
+Do not run both schedulers. Full data model, quote mapping and failure behaviour:
+[WEATHER.md](WEATHER.md).
 
 ### Indexes
 
@@ -328,6 +351,18 @@ Set `VITE_BASE_PATH=/<repo>/` and redeploy.
 ### Images fail
 
 Close to the localStorage cap. Export a JSON backup and delete old images. Mistake photos are intentionally local-only; the weekly-winner image is a compressed Firestore data URL, not Storage.
+
+### Weather card says 天氣資料更新中
+
+- First run: execute **Actions → Weather cache sync → Run workflow**; it writes
+  `weather/current`.
+- Confirm `firestore.rules` is published; signed-in clients need read access to
+  `weather/current`.
+- If `lastError` is present but `fetchedAt` still exists, the backend retained
+  the previous card intentionally; check the Actions log for the HKO HTTP error.
+- If `condition` looks wrong, check `conditionCode`; HKO `rhrread` supplies an
+  icon code, and the backend maps it to the official HKO icon caption.
+- GitHub cron can be delayed; use the manual run when testing.
 
 ### Firestore location is wrong
 

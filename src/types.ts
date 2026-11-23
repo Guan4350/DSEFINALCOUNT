@@ -41,6 +41,41 @@ export interface CalendarSyncConfig {
   updatedAt?: string;
 }
 
+export type WeatherCategory =
+  | 'sunny'
+  | 'cloudy'
+  | 'overcast'
+  | 'lightRain'
+  | 'heavyRain'
+  | 'windy'
+  | 'fog'
+  | 'cold'
+  | 'hot'
+  | 'thunder';
+
+/** Global cache written by the backend. The browser never calls HKO. */
+export interface WeatherSnapshot {
+  condition: string;
+  conditionCode: number;
+  category: WeatherCategory;
+  temperature: number;
+  temperatureUnit: string;
+  temperaturePlace: string;
+  humidity: number;
+  humidityUnit: string;
+  humidityPlace: string;
+  quoteText: string;
+  quoteSource: string;
+  weatherUpdateTime: string;
+  iconUpdateTime?: string;
+  fetchedAt: string;
+  lastAttemptAt?: string;
+  lastError?: string;
+  stale?: boolean;
+  source: 'hko-rhrread';
+  lang: 'tc';
+}
+
 export interface Subject {
   id: string;
   name: string;
